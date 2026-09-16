@@ -44,9 +44,19 @@ func verifyMTU(route config.Route) int {
 func (t routeTable) match(qname string) (routeEntry, bool) {
 	qname = strings.ToLower(strings.TrimSuffix(qname, "."))
 	for _, route := range t {
-		if qname == route.domain || strings.HasSuffix(qname, "."+route.domain) {
+		if matchesDomainSuffix(qname, route.domain) {
 			return route, true
 		}
 	}
 	return routeEntry{}, false
+}
+
+// matchesDomainSuffix checks the label boundary without building "."+suffix
+// for every route on every packet.
+func matchesDomainSuffix(name, suffix string) bool {
+	if name == suffix {
+		return true
+	}
+	boundary := len(name) - len(suffix) - 1
+	return boundary >= 0 && name[boundary] == '.' && strings.HasSuffix(name, suffix)
 }

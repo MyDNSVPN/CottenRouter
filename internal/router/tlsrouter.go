@@ -107,7 +107,7 @@ func (s *Server) handleTLSClient(client net.Conn, clientIP netip.Addr, routes []
 	backendAddress := defaultBackend
 	routeName := defaultRouteName
 	for _, route := range routes {
-		if serverName == route.serverName || strings.HasSuffix(serverName, "."+route.serverName) {
+		if matchesDomainSuffix(serverName, route.serverName) {
 			backendAddress = route.backend
 			routeName = route.name
 			break
