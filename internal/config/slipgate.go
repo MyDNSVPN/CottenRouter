@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -70,7 +71,14 @@ func LoadSlipGateRoutes(path string) ([]Route, error) {
 			}
 		case "slipstream":
 			if tunnel.Slipstream != nil && tunnel.Slipstream.Cert != "" {
-				route.Verify = &VerifyConfig{CertFile: tunnel.Slipstream.Cert}
+				// SlipGate creates each tunnel directory root:root 0750, so the
+				// unprivileged router service cannot read cert_file and exits 1
+				// at startup. Pin the same certificate hash while running as root.
+				key, err := loadVerifyKey(VerifyConfig{CertFile: tunnel.Slipstream.Cert})
+				if err != nil {
+					return nil, fmt.Errorf("SlipGate tunnel %q certificate: %w", tunnel.Tag, err)
+				}
+				route.Verify = &VerifyConfig{Key: hex.EncodeToString(key)}
 			}
 		}
 		routes = append(routes, route)

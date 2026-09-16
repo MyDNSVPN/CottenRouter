@@ -158,6 +158,40 @@ func TestSlipGateNativeSetupProtectsSharedPublicPorts(t *testing.T) {
 	}
 }
 
+func TestSystemdResolvedLoopbackStubCanBeHandedOff(t *testing.T) {
+	for _, address := range []string{"127.0.0.53:53", "127.0.0.53%lo:53", "[::1%lo]:53"} {
+		stub := Listener{Port: 53, Protocol: "udp", Address: address, Process: `users:(("systemd-resolve",pid=321,fd=13))`}
+		if !isSystemdResolvedStub(stub) {
+			t.Fatalf("normal systemd-resolved loopback stub %q was treated as an unrelated DNS service", address)
+		}
+	}
+	stubProcess := `users:(("systemd-resolve",pid=321,fd=13))`
+	for _, listener := range []Listener{
+		{Port: 53, Protocol: "udp", Address: "0.0.0.0:53", Process: stubProcess},
+		{Port: 53, Protocol: "udp", Address: "127.0.0.1:53", Process: `users:(("unbound",pid=322,fd=4))`},
+		{Port: 5353, Protocol: "udp", Address: "127.0.0.53:5353", Process: stubProcess},
+	} {
+		if isSystemdResolvedStub(listener) {
+			t.Fatalf("unrelated listener was mistaken for the system resolver stub: %+v", listener)
+		}
+	}
+}
+
+func TestSlipGateInitialSetupRunsOnlyWhenConfigIsMissing(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	needed, err := slipGateNeedsInitialSetup(path)
+	if err != nil || !needed {
+		t.Fatalf("missing config should require setup: needed=%v err=%v", needed, err)
+	}
+	if err := os.WriteFile(path, []byte(`{"tunnels":[]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	needed, err = slipGateNeedsInitialSetup(path)
+	if err != nil || needed {
+		t.Fatalf("upstream-created config should suppress duplicate setup: needed=%v err=%v", needed, err)
+	}
+}
+
 func TestProtectedFuserShimExecution(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("POSIX shim")

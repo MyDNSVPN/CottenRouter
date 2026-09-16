@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -463,10 +464,7 @@ func (m Model) installCmd() tea.Cmd {
 	if m.enableDoH {
 		args = append(args, "--doh", "--doh-domain", values["doh"])
 	}
-	command := exec.Command(executable, args...)
-	return tea.ExecProcess(command, func(err error) tea.Msg {
-		return installDoneMsg{err: err, operation: operation, project: spec.Name}
-	})
+	return runChild(exec.Command(executable, args...), operation, spec.Name)
 }
 
 func (m Model) directInstallCmd() tea.Cmd {
@@ -476,9 +474,36 @@ func (m Model) directInstallCmd() tea.Cmd {
 		return func() tea.Msg { return installDoneMsg{err: err, operation: "install", project: spec.Name} }
 	}
 	args := []string{"install", "--project", spec.ID, "--router-config", m.routerConfig}
-	return tea.ExecProcess(exec.Command(executable, args...), func(err error) tea.Msg {
-		return installDoneMsg{err: err, operation: "install", project: spec.Name}
+	return runChild(exec.Command(executable, args...), "install", spec.Name)
+}
+
+// runChild hands the terminal to a cottenrouter subcommand. The TUI redraw
+// wipes whatever it printed, so a failure used to surface only as "exit
+// status 1"; keep its last stderr line (the real error) for the notice.
+func runChild(command *exec.Cmd, operation, project string) tea.Cmd {
+	tail := &lastLineWriter{}
+	command.Stderr = io.MultiWriter(os.Stderr, tail)
+	return tea.ExecProcess(command, func(err error) tea.Msg {
+		if line := tail.String(); err != nil && line != "" {
+			err = fmt.Errorf("%s (%w)", line, err)
+		}
+		return installDoneMsg{err: err, operation: operation, project: project}
 	})
+}
+
+type lastLineWriter struct{ buf []byte }
+
+func (w *lastLineWriter) Write(p []byte) (int, error) {
+	w.buf = append(w.buf, p...)
+	if len(w.buf) > 4096 {
+		w.buf = w.buf[len(w.buf)-4096:]
+	}
+	return len(p), nil
+}
+
+func (w *lastLineWriter) String() string {
+	lines := strings.Split(strings.TrimSpace(string(w.buf)), "\n")
+	return strings.TrimSpace(lines[len(lines)-1])
 }
 
 func (m Model) removeCmd(purge bool) tea.Cmd {
@@ -497,9 +522,7 @@ func (m Model) removeCmd(purge bool) tea.Cmd {
 	if purge {
 		operation = "purge"
 	}
-	return tea.ExecProcess(exec.Command(executable, args...), func(err error) tea.Msg {
-		return installDoneMsg{err: err, operation: operation, project: spec.Name}
-	})
+	return runChild(exec.Command(executable, args...), operation, spec.Name)
 }
 
 func (m Model) keysCmd(reveal bool) tea.Cmd {
@@ -518,9 +541,7 @@ func (m Model) keysCmd(reveal bool) tea.Cmd {
 		operation = "secret reveal"
 	}
 	project := m.projects[m.cursor].Name
-	return tea.ExecProcess(exec.Command(executable, args...), func(err error) tea.Msg {
-		return installDoneMsg{err: err, operation: operation, project: project}
-	})
+	return runChild(exec.Command(executable, args...), operation, project)
 }
 
 func (m Model) projectCmd(command string, extra ...string) tea.Cmd {
@@ -540,9 +561,7 @@ func (m Model) projectCmd(command string, extra ...string) tea.Cmd {
 		operation = command
 	}
 	project := m.projects[m.cursor].Name
-	return tea.ExecProcess(exec.Command(executable, args...), func(err error) tea.Msg {
-		return installDoneMsg{err: err, operation: operation, project: project}
-	})
+	return runChild(exec.Command(executable, args...), operation, project)
 }
 
 func (m Model) View() string {

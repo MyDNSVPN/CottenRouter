@@ -420,7 +420,7 @@ func (m Manager) Remove(ctx context.Context, projectID, routerConfig string, pur
 	services := []string{spec.Service}
 	if spec.Kind == ConfigSlipGate {
 		services = nil
-		output, _ := m.Runner.Output(ctx, "systemctl", "list-unit-files", "--no-legend", "slipgate-*.service")
+		output, _ := listSlipGateUnitFiles(ctx, m.Runner)
 		for _, line := range strings.Split(string(output), "\n") {
 			fields := strings.Fields(line)
 			if len(fields) > 0 {
@@ -615,6 +615,9 @@ func (m Manager) Advanced(ctx context.Context, projectID, routerConfig string) e
 		if err := validateSlipGateTLSPublicPorts(slipGateTLSPlan, listeners, routerConfig); err != nil {
 			return fail(err)
 		}
+		if err := validateSlipGateDNSPorts(spec, routerConfig); err != nil {
+			return fail(err)
+		}
 		slipGateTLSTransaction, err = applySlipGateTLSPatches(slipGateTLSPlan)
 		if err != nil {
 			return fail(err)
@@ -635,13 +638,14 @@ func (m Manager) Advanced(ctx context.Context, projectID, routerConfig string) e
 		return fail(err)
 	}
 	if spec.Kind == ConfigSlipGate {
+		// Before any tunnel restart pulls cottenrouter in; see Install.
+		if err := disableNativeSlipGateDNSRouter(ctx, m.Runner); err != nil {
+			return fail(err)
+		}
 		if err := m.installContainment(ctx, spec); err != nil {
 			return fail(err)
 		}
 		if err := m.enableSlipGateManagedServices(ctx, spec.ConfigPath); err != nil {
-			return fail(err)
-		}
-		if err := disableNativeSlipGateDNSRouter(ctx, m.Runner); err != nil {
 			return fail(err)
 		}
 		if err := m.restartSlipGateTLSBackends(ctx, slipGateTLSPlan); err != nil {

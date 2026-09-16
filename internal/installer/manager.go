@@ -118,7 +118,7 @@ func (m Manager) Install(ctx context.Context, request Request, progress Progress
 		// installer takes that port, and an earlier failed run can leave it
 		// there. It is moved onto a loopback port and restarted below. Any
 		// other owner is still refused rather than stopped.
-		if listener.Port == 53 && !isCottenRouterListener(listener) && !listenerOwnedBySpec(listener, spec) {
+		if listener.Port == 53 && !isCottenRouterListener(listener) && !listenerOwnedBySpec(listener, spec) && !isSystemdResolvedStub(listener) {
 			return PortPlan{}, fmt.Errorf("port 53 is owned by %s; refusing to stop or replace it", listener.Process)
 		}
 	}
@@ -277,9 +277,20 @@ func (m Manager) Install(ctx context.Context, request Request, progress Progress
 		return plan, fmt.Errorf("upstream %s installer failed: %w", spec.Name, installErr)
 	}
 	if spec.Kind == ConfigSlipGate {
-		progress("Opening SlipGate's native setup so every selected transport setting remains available")
-		if err := m.runProtectedSlipGate(ctx, spec.WorkDir); err != nil {
-			return plan, fmt.Errorf("SlipGate setup: %w", err)
+		// The current upstream install.sh already runs `slipgate install`.
+		// Opening the no-argument TUI again made a successful install appear to
+		// hang, and cancelling that redundant menu rolled the whole transaction
+		// back. Keep an explicit fallback for older installer revisions that only
+		// placed the binary and did not create a configuration.
+		needsSetup, err := slipGateNeedsInitialSetup(spec.ConfigPath)
+		if err != nil {
+			return plan, err
+		}
+		if needsSetup {
+			progress("Opening SlipGate's native installer so every selected transport setting remains available")
+			if err := m.runProtectedSlipGateInstall(ctx, spec.WorkDir); err != nil {
+				return plan, fmt.Errorf("SlipGate setup: %w", err)
+			}
 		}
 	}
 	if spec.Kind == ConfigSlipGate {
@@ -297,6 +308,9 @@ func (m Manager) Install(ctx context.Context, request Request, progress Progress
 			return plan, fmt.Errorf("plan SlipGate TLS integration: %w", err)
 		}
 		if err := validateSlipGateTLSPublicPorts(slipGateTLSPlan, currentListeners, request.RouterConfig); err != nil {
+			return plan, err
+		}
+		if err := validateSlipGateDNSPorts(spec, request.RouterConfig); err != nil {
 			return plan, err
 		}
 		slipGateTLSTransaction, err = applySlipGateTLSPatches(slipGateTLSPlan)
@@ -321,14 +335,19 @@ func (m Manager) Install(ctx context.Context, request Request, progress Progress
 	if err := updateRouterConfigWithSlipGateTLS(request.RouterConfig, spec, request, plan, slipGateTLSPlan, previousSlipGateTLSPlan); err != nil {
 		return plan, err
 	}
+	if spec.Kind == ConfigSlipGate {
+		// Tunnel restarts below pull cottenrouter in through their Wants=
+		// drop-in. SlipGate's own DNS router must already be off :53, or the
+		// router start-fails in a loop until this function gets around to it.
+		if err := disableNativeSlipGateDNSRouter(ctx, m.Runner); err != nil {
+			return plan, err
+		}
+	}
 	if err := m.installContainment(ctx, spec); err != nil {
 		return plan, fmt.Errorf("install backend resource safeguards: %w", err)
 	}
 	if spec.Kind == ConfigSlipGate {
 		if err := m.enableSlipGateManagedServices(ctx, spec.ConfigPath); err != nil {
-			return plan, err
-		}
-		if err := disableNativeSlipGateDNSRouter(ctx, m.Runner); err != nil {
 			return plan, err
 		}
 		if err := m.Runner.Run(ctx, "usermod", []string{"-aG", "slipgate", "cottenrouter"}, "/", false); err != nil {
@@ -604,8 +623,57 @@ func listenerIsLoopback(address string) bool {
 		return false
 	}
 	host = strings.Trim(host, "[]")
+	// `ss` commonly renders systemd-resolved as 127.0.0.53%lo:53.
+	// The interface zone does not change whether the address is loopback.
+	if zone := strings.LastIndexByte(host, '%'); zone >= 0 {
+		host = host[:zone]
+	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+// systemd-resolved's local stub is safe to hand off: upstream installers
+// disable only this loopback listener before binding public DNS. Treating it
+// like an unrelated port-53 daemon blocks fresh Ubuntu/Debian installations.
+func isSystemdResolvedStub(listener Listener) bool {
+	process := strings.ToLower(listener.Process)
+	return listener.Port == 53 && listenerIsLoopback(listener.Address) &&
+		(strings.Contains(process, "systemd-resolve") || strings.Contains(process, "systemd-resolved"))
+}
+
+// SlipGate numbers DNS tunnels from 5310 using only its own config, so it can
+// pick a loopback port another router route already sends traffic to. Two
+// routes sharing a backend would silently cross-wire their tunnels.
+func validateSlipGateDNSPorts(spec Spec, routerConfigPath string) error {
+	routes, err := config.LoadSlipGateRoutes(spec.ConfigPath)
+	if err != nil {
+		return err
+	}
+	reserved := reservedRouterPorts(routerConfigPath, spec)
+	for _, route := range routes {
+		_, portText, _ := net.SplitHostPort(route.Backend)
+		port, _ := strconv.Atoi(portText)
+		for _, owner := range reserved {
+			if owner.Port == port {
+				return fmt.Errorf("SlipGate tunnel %s uses port %d, which is %s; change the tunnel port in SlipGate", strings.TrimPrefix(route.Name, "slipgate:"), port, owner.Process)
+			}
+		}
+	}
+	return nil
+}
+
+func slipGateNeedsInitialSetup(configPath string) (bool, error) {
+	info, err := os.Stat(configPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("inspect SlipGate configuration: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return false, fmt.Errorf("SlipGate configuration %q is not a regular file", configPath)
+	}
+	return false, nil
 }
 
 func (m Manager) runProtectedSlipGate(ctx context.Context, workDir string) error {
@@ -615,6 +683,15 @@ func (m Manager) runProtectedSlipGate(ctx context.Context, workDir string) error
 		return err
 	}
 	return m.runProtectedCommand(ctx, spec, slipgateBin, nil, workDir)
+}
+
+func (m Manager) runProtectedSlipGateInstall(ctx context.Context, workDir string) error {
+	spec, _ := FindSpec("slipgate")
+	slipgateBin, err := resolveSlipGateBinary(workDir)
+	if err != nil {
+		return err
+	}
+	return m.runProtectedCommand(ctx, spec, slipgateBin, []string{"install"}, workDir)
 }
 
 // resolveSlipGateBinary finds the slipgate binary by checking PATH first, then
@@ -879,7 +956,7 @@ TasksMax=4096
 			return err
 		}
 		services = nil
-		output, _ := m.Runner.Output(ctx, "systemctl", "list-unit-files", "--no-legend", "slipgate-*.service")
+		output, _ := listSlipGateUnitFiles(ctx, m.Runner)
 		for _, line := range strings.Split(string(output), "\n") {
 			fields := strings.Fields(line)
 			if len(fields) == 0 {

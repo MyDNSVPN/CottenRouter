@@ -119,8 +119,19 @@ func slipGateServiceNamesFromUnitList(unitData []byte) ([]string, error) {
 	return services, nil
 }
 
+// `systemctl list-unit-files PATTERN` exits 1 with no output when nothing
+// matches, which is every server SlipGate has never touched. Treating that as
+// fatal aborted each fresh SlipGate install with a bare "exit status 1".
+func listSlipGateUnitFiles(ctx context.Context, runner Runner) ([]byte, error) {
+	output, err := runner.Output(ctx, "systemctl", "list-unit-files", "--no-legend", "slipgate-*.service")
+	if err != nil && len(bytes.TrimSpace(output)) == 0 {
+		return nil, nil
+	}
+	return output, err
+}
+
 func snapshotSlipGateManagedServiceStates(ctx context.Context, runner Runner) ([]managedServiceState, error) {
-	units, err := runner.Output(ctx, "systemctl", "list-unit-files", "--no-legend", "slipgate-*.service")
+	units, err := listSlipGateUnitFiles(ctx, runner)
 	if err != nil {
 		return nil, fmt.Errorf("snapshot SlipGate services: %w", err)
 	}
@@ -140,7 +151,7 @@ func stopNewSlipGateManagedServices(previous []managedServiceState, runner Runne
 	for _, state := range previous {
 		old[state.name] = true
 	}
-	units, err := runner.Output(context.Background(), "systemctl", "list-unit-files", "--no-legend", "slipgate-*.service")
+	units, err := listSlipGateUnitFiles(context.Background(), runner)
 	if err != nil {
 		return
 	}
@@ -207,7 +218,7 @@ func (m Manager) enableSlipGateManagedServices(ctx context.Context, configPath s
 	if err != nil {
 		return err
 	}
-	units, err := m.Runner.Output(ctx, "systemctl", "list-unit-files", "--no-legend", "slipgate-*.service")
+	units, err := listSlipGateUnitFiles(ctx, m.Runner)
 	if err != nil {
 		return fmt.Errorf("list SlipGate services: %w", err)
 	}

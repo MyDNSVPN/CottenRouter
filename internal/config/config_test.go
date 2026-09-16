@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -171,5 +172,35 @@ func TestValidateRejectsBackendPointingAtRouterItself(t *testing.T) {
 	sane := Config{ListenUDP: "0.0.0.0:53", ListenTCP: "0.0.0.0:53", Routes: []Route{{Name: "cottendns", Domains: []string{"vpn.example"}, Backend: "127.0.0.1:5301", TCPBackend: "127.0.0.1:5301"}}}
 	if err := sane.Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// The router runs unprivileged and cannot enter SlipGate's root-only tunnel
+// directories, so the certificate pin must be embedded, not a file path.
+func TestSlipGateSlipstreamRouteEmbedsCertificatePin(t *testing.T) {
+	dir := t.TempDir()
+	cert := filepath.Join(dir, "cert.pem")
+	if err := os.WriteFile(cert, []byte("-----BEGIN CERTIFICATE-----\nAQIDBA==\n-----END CERTIFICATE-----\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "slipgate.json")
+	data := `{"tunnels":[{"tag":"quic","transport":"slipstream","domain":"quic.example","port":5311,"enabled":true,"slipstream":{"cert":` + strconv.Quote(cert) + `}}]}`
+	if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+	routes, err := LoadSlipGateRoutes(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, _ := loadVerifyKey(VerifyConfig{CertFile: cert})
+	if len(routes) != 1 || routes[0].Verify == nil || routes[0].Verify.CertFile != "" {
+		t.Fatalf("route still depends on a certificate file: %+v", routes)
+	}
+	if err := os.Remove(cert); err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadVerifyKey(*routes[0].Verify)
+	if err != nil || string(got) != string(want) {
+		t.Fatalf("embedded pin differs from the certificate hash: %x vs %x (%v)", got, want, err)
 	}
 }

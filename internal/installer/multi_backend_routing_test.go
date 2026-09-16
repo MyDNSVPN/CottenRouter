@@ -132,3 +132,20 @@ func TestPlannerAvoidsPortsRoutedToAStoppedBackend(t *testing.T) {
 		}
 	}
 }
+
+// SlipGate picks tunnel ports from its own config only; a port another route
+// already forwards to must be refused instead of cross-wiring two backends.
+func TestSlipGateTunnelCannotReuseAnotherRoutesBackendPort(t *testing.T) {
+	routerPath := routerConfigWithFirstBackend(t)
+	spec, _ := FindSpec("slipgate")
+	spec.ConfigPath = filepath.Join(t.TempDir(), "config.json")
+	for port, wantErr := range map[string]bool{"5301": true, "5310": false} {
+		data := `{"tunnels":[{"tag":"dnstt1","transport":"dnstt","domain":"t.example","port":` + port + `,"enabled":true}]}`
+		if err := os.WriteFile(spec.ConfigPath, []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := validateSlipGateDNSPorts(spec, routerPath); (err != nil) != wantErr {
+			t.Fatalf("port %s: err=%v, want error=%v", port, err, wantErr)
+		}
+	}
+}

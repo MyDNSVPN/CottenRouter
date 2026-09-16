@@ -328,3 +328,22 @@ func (runner *stateRunner) Output(_ context.Context, name string, args ...string
 	}
 	return nil, nil
 }
+
+// exitRunner reproduces systemctl on a server SlipGate has never touched:
+// list-unit-files matches nothing, prints nothing, and exits 1.
+type exitRunner struct{ output string }
+
+func (exitRunner) Run(context.Context, string, []string, string, bool) error { return nil }
+func (runner exitRunner) Output(context.Context, string, ...string) ([]byte, error) {
+	return []byte(runner.output), errors.New("exit status 1")
+}
+
+func TestFreshServerWithoutSlipGateUnitsCanSnapshot(t *testing.T) {
+	states, err := snapshotSlipGateManagedServiceStates(context.Background(), exitRunner{})
+	if err != nil || len(states) != 0 {
+		t.Fatalf("empty unit match must mean no services: states=%v err=%v", states, err)
+	}
+	if _, err := snapshotSlipGateManagedServiceStates(context.Background(), exitRunner{output: "System has not been booted with systemd"}); err == nil {
+		t.Fatal("a real systemctl failure must still be reported")
+	}
+}
