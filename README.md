@@ -1,10 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="CottenRouter logo" width="148">
-
-# CottenRouter
-
-### One public gateway for multiple DNS tunnels
+<img src="docs/assets/social-preview.png" alt="CottenRouter — One public gateway for multiple DNS tunnels" width="100%">
 
 **Fast, safe, and payload-transparent routing for DNS and TLS transports.**
 

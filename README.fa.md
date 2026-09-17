@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="لوگوی CottenRouter" width="148">
-
-# CottenRouter
+<img src="docs/assets/social-preview.png" alt="CottenRouter — یک درگاه عمومی برای چند تونل DNS" width="100%">
 
 ### یک درگاه عمومی، چند تونل DNS — سریع، امن و بدون تغییر Payload
 
