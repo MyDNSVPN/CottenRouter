@@ -3,6 +3,7 @@ package installer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -84,6 +85,10 @@ func TestCottenTCPIPv6ListenerRemainsPrivate(t *testing.T) {
 	}
 	if !strings.Contains(string(configured), `TCP_IPV6_HOST = "::1"`) {
 		t.Fatalf("IPv6 TCP listener remained public:\n%s", configured)
+	}
+	// The udp6 listener is on by default at [::] even with no key present.
+	if !strings.Contains(string(configured), `UDP_IPV6_HOST = "::1"`) {
+		t.Fatalf("IPv6 UDP listener remained public:\n%s", configured)
 	}
 }
 
@@ -350,5 +355,41 @@ func TestProtectedFirewallShimTerminatesDeleteUntilGoneLoop(t *testing.T) {
 	}
 	if ctx.Err() != nil {
 		t.Fatal("delete-until-gone loop never terminated")
+	}
+}
+
+// egressRuleRunner holds StormDNS's outbound TCP/53 reject rule twice on
+// iptables and has no ip6tables at all.
+type egressRuleRunner struct {
+	copies  int
+	deletes int
+}
+
+func (r *egressRuleRunner) Run(_ context.Context, name string, args []string, _ string, _ bool) error {
+	switch {
+	case name == "ip6tables":
+		return errors.New("ip6tables: not found")
+	case name == "iptables" && args[0] == "-C":
+		if r.copies == 0 {
+			return errors.New("rule absent")
+		}
+	case name == "iptables" && args[0] == "-D":
+		r.copies--
+		r.deletes++
+	}
+	return nil
+}
+
+func (r *egressRuleRunner) Output(context.Context, string, ...string) ([]byte, error) {
+	return nil, nil
+}
+
+func TestStormDNSOutboundTCP53BlockIsRemoved(t *testing.T) {
+	runner := &egressRuleRunner{copies: 2}
+	if err := (Manager{Runner: runner}).disableStormDNSEgressFilter(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if runner.copies != 0 || runner.deletes != 2 {
+		t.Fatalf("expected both copies removed, left %d after %d deletes", runner.copies, runner.deletes)
 	}
 }

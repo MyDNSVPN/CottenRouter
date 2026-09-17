@@ -77,6 +77,14 @@ func main() {
 	}
 }
 
+// operationContext keeps an interrupted operation alive long enough to roll
+// back. Ctrl+C at an upstream installer prompt, or an SSH session dropping
+// (SIGHUP), used to kill cottenrouter outright mid-install: its deferred
+// rollback never ran and the router stayed stopped until someone noticed.
+func operationContext() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+}
+
 // errFlagsReported marks a flag.Parse failure. The flag package has already
 // written the message and the subcommand's usage to stderr, so main exits
 // without printing the same line a second time.
@@ -274,7 +282,9 @@ func installProject(args []string) error {
 	if err != nil {
 		return err
 	}
-	plan, err := installer.DefaultManager().Install(context.Background(), request, func(message string) { fmt.Println("  •", message) })
+	ctx, stop := operationContext()
+	defer stop()
+	plan, err := installer.DefaultManager().Install(ctx, request, func(message string) { fmt.Println("  •", message) })
 	if err != nil {
 		return err
 	}
@@ -290,7 +300,9 @@ func configureProject(args []string) error {
 	if err != nil {
 		return err
 	}
-	plan, err := installer.DefaultManager().Configure(context.Background(), request, func(message string) { fmt.Println("  •", message) })
+	ctx, stop := operationContext()
+	defer stop()
+	plan, err := installer.DefaultManager().Configure(ctx, request, func(message string) { fmt.Println("  •", message) })
 	if err != nil {
 		return err
 	}
@@ -315,7 +327,9 @@ func removeProject(args []string) error {
 	if *purge && *confirm != *project {
 		return fmt.Errorf("--purge requires --confirm %s", *project)
 	}
-	return installer.DefaultManager().Remove(context.Background(), *project, *routerConfig, *purge)
+	ctx, stop := operationContext()
+	defer stop()
+	return installer.DefaultManager().Remove(ctx, *project, *routerConfig, *purge)
 }
 
 func printKeys(args []string) error {
@@ -342,7 +356,9 @@ func advancedProject(args []string) error {
 	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
-	return installer.DefaultManager().Advanced(context.Background(), *project, *routerConfig)
+	ctx, stop := operationContext()
+	defer stop()
+	return installer.DefaultManager().Advanced(ctx, *project, *routerConfig)
 }
 
 func manageService(args []string) error {
@@ -352,7 +368,9 @@ func manageService(args []string) error {
 	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
-	return installer.DefaultManager().Service(context.Background(), *project, *action)
+	ctx, stop := operationContext()
+	defer stop()
+	return installer.DefaultManager().Service(ctx, *project, *action)
 }
 
 func usage() {

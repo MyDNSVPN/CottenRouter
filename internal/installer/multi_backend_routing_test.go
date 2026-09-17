@@ -149,3 +149,22 @@ func TestSlipGateTunnelCannotReuseAnotherRoutesBackendPort(t *testing.T) {
 		}
 	}
 }
+
+// A domain another route owns must be refused before the upstream installer
+// runs; the router used to stay down for the whole doomed install.
+func TestPreflightRejectsDomainOwnedByAnotherRouteWithoutWriting(t *testing.T) {
+	path := routerConfigWithFirstBackend(t)
+	before, _ := os.ReadFile(path)
+	spec, _ := FindSpec("masterdnsvpn")
+	request := Request{ProjectID: spec.ID, Domain: "dns.example", PrivatePort: 5302, RouterConfig: path}
+	if err := preflightRouterConfig(path, spec, request, PortPlan{DNSPort: 5302}); err == nil {
+		t.Fatal("expected the duplicate domain to be refused")
+	}
+	request.Domain = "vpn.example"
+	if err := preflightRouterConfig(path, spec, request, PortPlan{DNSPort: 5302}); err != nil {
+		t.Fatalf("free domain refused: %v", err)
+	}
+	if after, _ := os.ReadFile(path); string(after) != string(before) {
+		t.Fatal("preflight modified the router config")
+	}
+}

@@ -271,6 +271,9 @@ func (m Manager) Configure(ctx context.Context, request Request, progress Progre
 		return plan, fmt.Errorf("no safe private port is available")
 	}
 	request.PrivatePort = plan.DNSPort
+	if err := preflightRouterConfig(request.RouterConfig, spec, request, plan); err != nil {
+		return plan, err
+	}
 	configured, err := configure(spec, request, plan, data)
 	if err != nil {
 		return plan, err
@@ -323,6 +326,10 @@ func (m Manager) Configure(ctx context.Context, request Request, progress Progre
 		// config has just been rewritten to a loopback port, and `enable --now`
 		// does nothing to an already-running unit: it has to be restarted, or it
 		// keeps port 53 and the router can never take it back.
+		if err := m.disableStormDNSEgressFilter(ctx); err != nil {
+			rollback()
+			return plan, err
+		}
 		if err := m.Runner.Run(ctx, "systemctl", []string{"enable", spec.Service}, "/", false); err != nil {
 			rollback()
 			return plan, err
@@ -778,6 +785,9 @@ func syncProjectRouteInternal(path string, spec Spec, currentSlipGateTLS, previo
 		if spec.ID == "cottendns" {
 			if strings.EqualFold(tomlValue(backendData, "TCP_IPV6_ENABLED"), "true") && tomlValue(backendData, "TCP_IPV6_HOST") != "::1" {
 				return fmt.Errorf("TCP_IPV6_HOST must remain ::1 so plain DNS-over-TCP cannot bypass CottenRouter")
+			}
+			if !strings.EqualFold(tomlValue(backendData, "UDP_IPV6_ENABLED"), "false") && tomlValue(backendData, "UDP_IPV6_HOST") != "::1" {
+				return fmt.Errorf(`set UDP_IPV6_HOST = "::1" (or UDP_IPV6_ENABLED = false) so IPv6 DNS cannot bypass CottenRouter`)
 			}
 			if strings.EqualFold(tomlValue(backendData, "DOT_LISTENER_ENABLED"), "true") && tomlValue(backendData, "DOT_LISTEN_HOST") != "127.0.0.1" {
 				return fmt.Errorf("DOT_LISTEN_HOST must remain 127.0.0.1 so DoT cannot bypass CottenRouter")

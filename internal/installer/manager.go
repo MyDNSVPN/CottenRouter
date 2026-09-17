@@ -142,6 +142,9 @@ func (m Manager) Install(ctx context.Context, request Request, progress Progress
 		return plan, fmt.Errorf("no safe private port is available")
 	}
 	request.PrivatePort = plan.DNSPort
+	if err := preflightRouterConfig(request.RouterConfig, spec, request, plan); err != nil {
+		return plan, err
+	}
 
 	progress("Resolving and verifying the current upstream installer")
 	project, err := catalog.DefaultResolver().LatestProject(ctx, request.ProjectID)
@@ -995,12 +998,48 @@ TasksMax=2048
 	if err := m.Runner.Run(ctx, "systemctl", []string{"daemon-reload"}, "/", false); err != nil {
 		return err
 	}
+	// Runs for every backend, not just StormDNS: installing any other
+	// protocol afterwards also cleans up a host StormDNS already locked down.
+	if err := m.disableStormDNSEgressFilter(ctx); err != nil {
+		return err
+	}
 	if spec.Kind == ConfigSlipGate {
 		// Unit/Caddy listener rewrites only affect running tunnel processes
 		// after a restart. try-restart preserves tunnels that were disabled.
 		for _, service := range services {
 			if err := m.Runner.Run(ctx, "systemctl", []string{"try-restart", service}, "/", false); err != nil {
 				return fmt.Errorf("apply private listener to %s: %w", service, err)
+			}
+		}
+	}
+	return nil
+}
+
+// StormDNS installs a boot service that rejects every outbound TCP/53
+// connection on the host. That breaks the system resolver's TCP fallback and
+// every other backend that resolves over TCP (CottenDNS's own installer deletes
+// the same rule). Keep the unit from running again and remove what it added.
+func (m Manager) disableStormDNSEgressFilter(ctx context.Context) error {
+	const unit = "stormdns-egress-filter"
+	if _, err := os.Stat(filepath.Join("/etc/systemd/system", unit+".service")); err == nil {
+		// Same false condition as the SlipGate DNS router blocker: it survives
+		// StormDNS reinstalls that re-enable the unit.
+		if err := writeDropIn(unit, "[Unit]\nConditionPathExists=/run/cottenrouter/allow-stormdns-egress-filter\n"); err != nil {
+			return err
+		}
+		_ = m.Runner.Run(ctx, "systemctl", []string{"daemon-reload"}, "/", false)
+		_ = m.Runner.Run(ctx, "systemctl", []string{"stop", unit}, "/", false)
+	}
+	rule := []string{"OUTPUT", "-p", "tcp", "--dport", "53", "-j", "REJECT", "--reject-with", "tcp-reset"}
+	for _, tool := range []string{"iptables", "ip6tables"} {
+		// Each StormDNS run inserts at most one copy; the bound only guards
+		// against a tool that keeps reporting a rule it cannot delete.
+		for range 16 {
+			if m.Runner.Run(ctx, tool, append([]string{"-C"}, rule...), "/", false) != nil {
+				break
+			}
+			if err := m.Runner.Run(ctx, tool, append([]string{"-D"}, rule...), "/", false); err != nil {
+				return fmt.Errorf("remove StormDNS outbound TCP/53 block: %w", err)
 			}
 		}
 	}
@@ -1132,6 +1171,10 @@ func configure(spec Spec, request Request, plan PortPlan, data []byte) ([]byte, 
 			}
 			data = setTOML(data, "TCP_LISTENER_ENABLED", strconv.FormatBool(request.EnableTCP))
 			data = setTOML(data, "TCP_IPV6_HOST", "\"::1\"")
+			// Current CottenDNS releases also open a udp6 tunnel listener, on
+			// by default at [::], which let clients skip the router over public
+			// IPv6. Older releases ignore the unknown key.
+			data = setTOML(data, "UDP_IPV6_HOST", "\"::1\"")
 			data = setTOML(data, "DOT_LISTENER_ENABLED", strconv.FormatBool(request.EnableDoT))
 			data = setTOML(data, "DOT_LISTEN_HOST", "\"127.0.0.1\"")
 			data = setTOML(data, "DOT_LISTEN_PORT", strconv.Itoa(plan.DoTPrivatePort))
@@ -1266,14 +1309,36 @@ func updateRouterConfigWithSlipGateTLS(path string, spec Spec, request Request, 
 }
 
 func updateRouterConfigInternal(path string, spec Spec, request Request, plan PortPlan, currentSlipGateTLS, previousSlipGateTLS *SlipGateTLSPlan) error {
+	cfg, err := buildRouterConfig(path, spec, request, plan, currentSlipGateTLS, previousSlipGateTLS)
+	if err != nil {
+		return err
+	}
+	encoded, _ := json.MarshalIndent(cfg, "", "  ")
+	return atomicWrite(path, append(encoded, '\n'), 0640)
+}
+
+// preflightRouterConfig proves the requested route fits the router's rules
+// (unique domains, loopback backends) before anything is stopped or run. A
+// conflict used to surface only after the upstream installer had finished,
+// with the router down for the whole doomed attempt. SlipGate's routes come
+// out of its native setup, so they can only be checked after it runs.
+func preflightRouterConfig(path string, spec Spec, request Request, plan PortPlan) error {
+	if spec.Kind == ConfigSlipGate {
+		return nil
+	}
+	_, err := buildRouterConfig(path, spec, request, plan, nil, nil)
+	return err
+}
+
+func buildRouterConfig(path string, spec Spec, request Request, plan PortPlan, currentSlipGateTLS, previousSlipGateTLS *SlipGateTLSPlan) (config.Config, error) {
 	var cfg config.Config
 	data, err := os.ReadFile(path)
 	if err == nil {
 		if err := json.Unmarshal(data, &cfg); err != nil {
-			return fmt.Errorf("decode router config: %w", err)
+			return cfg, fmt.Errorf("decode router config: %w", err)
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
+		return cfg, err
 	}
 	// Seed the defaults on a fresh config, but never overwrite settings an
 	// operator already chose: installing a second backend used to move a
@@ -1295,7 +1360,7 @@ func updateRouterConfigInternal(path string, spec Spec, request Request, plan Po
 	if spec.Kind == ConfigSlipGate {
 		routes, err := config.LoadSlipGateRoutes(spec.ConfigPath)
 		if err != nil {
-			return err
+			return cfg, err
 		}
 		for _, route := range routes {
 			cfg.Routes = upsertRoute(cfg.Routes, route)
@@ -1307,7 +1372,7 @@ func updateRouterConfigInternal(path string, spec Spec, request Request, plan Po
 			}
 			cfg.TLSListeners, err = mergeSlipGateTLSListeners(cfg.TLSListeners, *currentSlipGateTLS, previous)
 			if err != nil {
-				return fmt.Errorf("merge SlipGate TLS routes: %w", err)
+				return cfg, fmt.Errorf("merge SlipGate TLS routes: %w", err)
 			}
 		}
 	} else {
@@ -1339,10 +1404,9 @@ func updateRouterConfigInternal(path string, spec Spec, request Request, plan Po
 		}
 	}
 	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("generated router config: %w", err)
+		return cfg, fmt.Errorf("generated router config: %w", err)
 	}
-	encoded, _ := json.MarshalIndent(cfg, "", "  ")
-	return atomicWrite(path, append(encoded, '\n'), 0640)
+	return cfg, nil
 }
 
 type firewallPort struct {
