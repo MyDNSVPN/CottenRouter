@@ -261,16 +261,47 @@ if ${purge_backends}; then
       [[ -f ${record} ]] || continue
       installer_file=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['installer_file'])" "${record}" 2>/dev/null) || continue
       [[ -f ${installer_file} && ${installer_file} == /var/lib/cottenrouter/upstreams/* ]] || continue
+      # SlipGate's install.sh ignores its arguments: running it with
+      # --uninstall re-downloaded and re-ran the installer. Only call
+      # installers that actually implement the flag.
+      grep -q -- '--uninstall' "${installer_file}" || break
       echo "Running pinned native uninstaller for ${backend_id}..."
       bash "${installer_file}" --uninstall 2>/dev/null || echo "  native ${backend_id} uninstaller returned non-zero (may be expected)"
       break
     done
   done
 
-  # SlipGate native uninstaller
-  if command -v slipgate >/dev/null 2>&1; then
-    slipgate uninstall 2>/dev/null || true
+  # SlipGate's uninstaller has no non-interactive flag and reads its
+  # confirmation from /dev/tty, so without a terminal it silently cancelled.
+  # --confirm CottenRouter already approved this, so answer it through a pty,
+  # then remove what it leaves (or everything, if it could not run).
+  if command -v slipgate >/dev/null 2>&1 && command -v script >/dev/null 2>&1; then
+    printf 'y\n' | script -qec "$(command -v slipgate) uninstall" /dev/null >/dev/null 2>&1 || true
   fi
+  for slipgate_bin in slipgate dnstt-server slipstream-server vaydns-server caddy-naive microsocks; do
+    rm -f -- "/usr/local/bin/${slipgate_bin}"
+  done
+  userdel slipgate >/dev/null 2>&1 || true
+  groupdel slipgate-ssh >/dev/null 2>&1 || true
+  groupdel slipgate >/dev/null 2>&1 || true
+  rm -f -- /etc/iptables/slipgate-rules.v4
+  rmdir --ignore-fail-on-non-empty /etc/iptables 2>/dev/null || true
+  if [[ -f /etc/systemd/resolved.conf.d/slipgate-no-stub.conf ]]; then
+    rm -f -- /etc/systemd/resolved.conf.d/slipgate-no-stub.conf
+    systemctl try-restart systemd-resolved >/dev/null 2>&1 || true
+  fi
+
+  # StormDNS's host-wide outbound TCP/53 block, which CottenRouter disables.
+  systemctl disable --now stormdns-egress-filter >/dev/null 2>&1 || true
+  rm -f -- /etc/systemd/system/stormdns-egress-filter.service /usr/local/sbin/stormdns-egress-filter.sh
+  rm -rf -- /etc/systemd/system/stormdns-egress-filter.service.d
+  for firewall_tool in iptables ip6tables; do
+    command -v "${firewall_tool}" >/dev/null 2>&1 || continue
+    for _ in 1 2 3 4 5 6 7 8; do
+      "${firewall_tool}" -C OUTPUT -p tcp --dport 53 -j REJECT --reject-with tcp-reset 2>/dev/null || break
+      "${firewall_tool}" -D OUTPUT -p tcp --dport 53 -j REJECT --reject-with tcp-reset 2>/dev/null || break
+    done
+  done
 
   # Remove backend directories and systemd units.
   for backend_dir in "${BACKEND_DIRS[@]}"; do
@@ -302,6 +333,11 @@ if ${purge_backends}; then
 
   systemctl daemon-reload
   backends_removed=true
+fi
+
+# Swap and install records live here; once both are gone, so is the directory.
+if ${purge}; then
+  rmdir --ignore-fail-on-non-empty "${SWAP_DIRECTORY}" 2>/dev/null || true
 fi
 
 echo "CottenRouter was removed."

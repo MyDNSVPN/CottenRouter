@@ -653,11 +653,11 @@ if ! ${router_ready}; then
   fail "CottenRouter did not pass its health check within 30 seconds"
 fi
 
-# Deterministic smoke test: prove the UDP listener actually answers, not
-# just that the process started. Failure is a warning, since a locked-down
-# bootstrap configuration may legitimately refuse this query.
-if command -v dig >/dev/null 2>&1; then
-  dig +short +time=2 +tries=1 -p "${udp_port}" @127.0.0.1 localhost >/dev/null 2>&1 ||     printf 'Warning: a test DNS query to 127.0.0.1:%s returned no answer; check the routing rules.\n' "${udp_port}" >&2
+# Prove the router itself holds its public UDP port, not just that the process
+# started. A DNS query cannot prove this: the bootstrap config drops every
+# unrouted name, so the old `dig localhost` probe warned on every fresh install.
+if ! ss -H -lunp "sport = :${udp_port}" 2>/dev/null | grep -q cottenrouter; then
+  printf 'Warning: CottenRouter is running but does not hold UDP port %s.\n' "${udp_port}" >&2
 fi
 
 # Open exactly the ports this configuration serves publicly. The admin
@@ -685,10 +685,12 @@ elif command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet fire
     fi
   done
   (( ${#firewall_added_ports[@]} == 0 )) || firewall-cmd --reload >/dev/null
-elif command -v nft >/dev/null 2>&1 || command -v iptables >/dev/null 2>&1; then
-  # Rewriting an arbitrary nftables/iptables policy is not safe to
-  # automate, so state the requirement instead.
-  printf 'CottenRouter is installed, but firewall management is unsupported on this host (nftables/iptables only).\n' >&2
+elif { command -v iptables >/dev/null 2>&1 && iptables -S INPUT 2>/dev/null | grep -Eq '^-P INPUT (DROP|REJECT)|-j (DROP|REJECT)'; } ||
+  { command -v nft >/dev/null 2>&1 && nft list ruleset 2>/dev/null | grep -Eq 'hook input.*policy drop'; }; then
+  # Rewriting an arbitrary nftables/iptables policy is not safe to automate,
+  # so state the requirement instead. Only say so when the host really
+  # filters inbound traffic: a plain ACCEPT policy needs nothing opened.
+  printf 'CottenRouter is installed, but this host filters inbound traffic with raw nftables/iptables rules that it will not rewrite.\n' >&2
   printf 'Allow inbound: %s\n' "${public_ports[*]}" >&2
 fi
 # Record exactly which rules this installer added so the uninstaller removes
