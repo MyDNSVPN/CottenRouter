@@ -3,7 +3,6 @@ package telemetry
 import (
 	"runtime"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,10 +10,13 @@ import (
 
 type Registry struct {
 	started time.Time
-	items   sync.Map
+	mu      sync.RWMutex
+	items   map[counterKey]*counter
 	dropped atomic.Uint64
 	limited atomic.Uint64
 }
+
+type counterKey struct{ protocol, route string }
 
 type counter struct {
 	queries, bytesIn, bytesOut, sessions, errors atomic.Uint64
@@ -42,14 +44,31 @@ type Metric struct {
 	Errors   uint64 `json:"errors"`
 }
 
-func New() *Registry { return &Registry{started: time.Now()} }
+func New() *Registry {
+	return &Registry{started: time.Now(), items: make(map[counterKey]*counter)}
+}
 
 // Ensure exposes configured protocols before their first packet arrives.
 func (r *Registry) Ensure(protocol, route string) { r.get(protocol, route) }
 
+// get runs several times per query. The previous sync.Map version built a
+// concatenated key string and a throwaway counter on every call, even when
+// the counter already existed: about half of all per-query allocations.
 func (r *Registry) get(protocol, route string) *counter {
-	value, _ := r.items.LoadOrStore(protocol+"\x00"+route, &counter{})
-	return value.(*counter)
+	key := counterKey{protocol, route}
+	r.mu.RLock()
+	c := r.items[key]
+	r.mu.RUnlock()
+	if c != nil {
+		return c
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if c = r.items[key]; c == nil {
+		c = &counter{}
+		r.items[key] = c
+	}
+	return c
 }
 
 func (r *Registry) Query(protocol, route string, size int) {
@@ -88,12 +107,11 @@ func (r *Registry) Snapshot() Snapshot {
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
 	result := Snapshot{StartedAt: r.started.UTC().Format(time.RFC3339), UptimeSec: int64(now.Sub(r.started).Seconds()), Dropped: r.dropped.Load(), Limited: r.limited.Load(), MemoryBytes: memory.Alloc, Goroutines: runtime.NumGoroutine()}
-	r.items.Range(func(key, value any) bool {
-		parts := strings.SplitN(key.(string), "\x00", 2)
-		c := value.(*counter)
-		result.Protocols = append(result.Protocols, Metric{Protocol: parts[0], Route: parts[1], Queries: c.queries.Load(), BytesIn: c.bytesIn.Load(), BytesOut: c.bytesOut.Load(), Sessions: c.sessions.Load(), Active: c.active.Load(), Errors: c.errors.Load()})
-		return true
-	})
+	r.mu.RLock()
+	for key, c := range r.items {
+		result.Protocols = append(result.Protocols, Metric{Protocol: key.protocol, Route: key.route, Queries: c.queries.Load(), BytesIn: c.bytesIn.Load(), BytesOut: c.bytesOut.Load(), Sessions: c.sessions.Load(), Active: c.active.Load(), Errors: c.errors.Load()})
+	}
+	r.mu.RUnlock()
 	sort.Slice(result.Protocols, func(i, j int) bool {
 		if result.Protocols[i].Protocol == result.Protocols[j].Protocol {
 			return result.Protocols[i].Route < result.Protocols[j].Route

@@ -201,6 +201,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 // Serve runs on an already-open UDP socket. It is exported to support socket
 // activation and deterministic local tests.
 func (s *Server) Serve(ctx context.Context, listener *net.UDPConn) error {
+	sizeUDPBuffers(listener)
 	s.listenersMu.Lock()
 	s.listener = listener
 	s.listenersMu.Unlock()
@@ -603,6 +604,17 @@ func (s *Server) getBackend(address string) (*backendConn, error) {
 	return s.newBackendLocked(address)
 }
 
+// udpSocketBuffer sizes the kernel queues for bursts. The default (~256 KiB,
+// roughly 300 small datagrams) overflowed at a few hundred concurrent clients
+// and the kernel dropped queries before the router ever read them. The kernel
+// caps the request at net.core.rmem_max/wmem_max, so this is best effort.
+const udpSocketBuffer = 4 << 20
+
+func sizeUDPBuffers(conn *net.UDPConn) {
+	_ = conn.SetReadBuffer(udpSocketBuffer)
+	_ = conn.SetWriteBuffer(udpSocketBuffer)
+}
+
 func (s *Server) newBackendLocked(address string) (*backendConn, error) {
 	remote, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {
@@ -612,6 +624,7 @@ func (s *Server) newBackendLocked(address string) (*backendConn, error) {
 	if err != nil {
 		return nil, err
 	}
+	sizeUDPBuffers(conn)
 	backend := &backendConn{address: address, conn: conn, pending: make(map[uint16]pendingQuery), done: make(chan struct{})}
 	s.backends[address] = backend
 	s.allBackends[backend] = struct{}{}
