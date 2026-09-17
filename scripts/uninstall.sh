@@ -276,7 +276,7 @@ if ${purge_backends}; then
   # --confirm CottenRouter already approved this, so answer it through a pty,
   # then remove what it leaves (or everything, if it could not run).
   if command -v slipgate >/dev/null 2>&1 && command -v script >/dev/null 2>&1; then
-    printf 'y\n' | script -qec "$(command -v slipgate) uninstall" /dev/null >/dev/null 2>&1 || true
+    printf 'y\n' | timeout 120 script -qec "$(command -v slipgate) uninstall" /dev/null >/dev/null 2>&1 || true
   fi
   for slipgate_bin in slipgate dnstt-server slipstream-server vaydns-server caddy-naive microsocks; do
     rm -f -- "/usr/local/bin/${slipgate_bin}"

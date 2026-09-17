@@ -483,6 +483,9 @@ func (m Model) directInstallCmd() tea.Cmd {
 func runChild(command *exec.Cmd, operation, project string) tea.Cmd {
 	tail := &lastLineWriter{}
 	command.Stderr = io.MultiWriter(os.Stderr, tail)
+	// A non-file Stderr makes Wait drain a pipe. Anything an installer leaves
+	// running in the background would hold it open and freeze the TUI.
+	command.WaitDelay = 2 * time.Second
 	return tea.ExecProcess(command, func(err error) tea.Msg {
 		if line := tail.String(); err != nil && line != "" {
 			err = fmt.Errorf("%s (%w)", line, err)
