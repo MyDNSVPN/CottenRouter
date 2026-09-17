@@ -346,7 +346,7 @@ sudo cottenrouter-uninstall --remove-swap --confirm CottenRouter
 - تطبیق ID و Question، احراز هویت cryptographic نیست؛ backend مورد اعتماد فرض می‌شود.
 - تست کامل lifecycle روی تمام توزیع‌ها و پنل‌های سرور هنوز در CI شبیه‌سازی نمی‌شود.
 
-اطلاعات بیشتر: [امنیت](docs/security.md) · [نصاب و پنل](docs/installer.md) · [اتصال backendها](docs/backend-integration.md)
+اطلاعات بیشتر: [امنیت](docs/security.md) · [نصاب و پنل](docs/installer.md) · [اتصال backendها](docs/backend-integration.md) · [یادداشت‌های انتشار v1.2.13](docs/releases/v1.2.13.md)
 
 ---
 

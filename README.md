@@ -387,6 +387,7 @@ Use [Issues](https://github.com/TaJirax/CottenRouter/issues) for bugs and featur
 | [Backend integration](docs/backend-integration.md) | Domains, listeners, feature boundaries, and project notes |
 | [Security](docs/security.md) | Flood controls, resource limits, systemd hardening, and swap |
 | [Configuration example](cottenrouter.example.json) | Complete annotated-style configuration starting point |
+| [Release notes v1.2.13](docs/releases/v1.2.13.md) | What changed since v1.2.10, upgrade steps, and load-test results |
 
 ---
 
