@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/logo.png" alt="CottenRouter logo" width="148">
+
 # CottenRouter
 
 ### One public gateway for multiple DNS tunnels
