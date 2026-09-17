@@ -80,7 +80,7 @@ sudo cottenrouter tui
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TaJirax/CottenRouter/main/scripts/install.sh \
-  | sudo bash -s -- --version=v1.2.13
+  | sudo bash -s -- --version=v1.2.14
 ```
 
 ### نصب نسخه توسعه
