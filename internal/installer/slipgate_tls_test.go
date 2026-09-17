@@ -42,13 +42,33 @@ func TestBuildSlipGateTLSPlanPatchesNaiveAndStunTLS(t *testing.T) {
 	}
 
 	caddy := string(patchForPath(t, plan, "/etc/slipgate/tunnels/web/Caddyfile").After)
-	for _, want := range []string{"https://naive.example:9444 {", "bind 127.0.0.1", "basic_auth alice correct-horse", "reverse_proxy https://decoy.example"} {
+	// The bare ":9444" address must survive: without it Caddy host-matches
+	// every request against naive.example and CONNECT to any other host fails.
+	for _, want := range []string{":9444, naive.example:9444 {", "bind 127.0.0.1", "basic_auth alice correct-horse", "reverse_proxy https://decoy.example"} {
 		if !strings.Contains(caddy, want) {
 			t.Fatalf("patched Caddyfile missing %q:\n%s", want, caddy)
 		}
 	}
 	if strings.Contains(caddy, ":443, naive.example") {
 		t.Fatalf("patched Caddyfile retained a public bind:\n%s", caddy)
+	}
+	// The next install or Advanced run must recognize its own output.
+	again, err := inspectNaiveCaddyfile([]byte(caddy), "naive.example", 443, 9443, 9450)
+	if err != nil || again.existingPrivatePort != 9444 {
+		t.Fatalf("patched Caddyfile does not parse back as private port 9444: %+v %v", again, err)
+	}
+	// Servers patched by earlier releases carry the host-only header; re-patching upgrades it.
+	legacy := []byte("https://naive.example:9444 {\n  bind 127.0.0.1\n  tls ops@example.com\n}\n")
+	shape, err := inspectNaiveCaddyfile(legacy, "naive.example", 443, 9443, 9450)
+	if err != nil || shape.existingPrivatePort != 9444 {
+		t.Fatalf("legacy private header rejected: %v", err)
+	}
+	upgraded, err := shape.patch("naive.example", 9444)
+	if err != nil || !strings.Contains(string(upgraded), ":9444, naive.example:9444 {") {
+		t.Fatalf("legacy header was not upgraded:\n%s (%v)", upgraded, err)
+	}
+	if _, err := inspectNaiveCaddyfile([]byte(":9444, naive.example:9445 {\n  bind 127.0.0.1\n}\n"), "naive.example", 443, 9443, 9450); err == nil {
+		t.Fatal("a header with two different ports was accepted")
 	}
 	unit := string(patchForPath(t, plan, "/etc/systemd/system/slipgate-ssh-tls.service").After)
 	for _, want := range []string{"--addr 127.0.0.1", "--port 9445", "--ssh 127.0.0.1:22", "--cert /etc/slipgate/tunnels/ssh-tls/cert.pem", "--key /etc/slipgate/tunnels/ssh-tls/key.pem"} {
@@ -63,7 +83,7 @@ func TestBuildSlipGateTLSPlanReusesOwnedPrivateBindings(t *testing.T) {
 		naiveTunnelFixture("web", "Naive.Example.", 443),
 		stunTunnelFixture("ssh-tls", 443),
 	)
-	caddy := []byte("{\n  admin off\n}\n\nhttps://naive.example:9444 {\n  bind 127.0.0.1\n  tls ops@example.com\n}\n")
+	caddy := []byte("{\n  admin off\n}\n\n:9444, naive.example:9444 {\n  bind 127.0.0.1\n  tls ops@example.com\n}\n")
 	unit := stunUnitFixture("ssh-tls", "127.0.0.1", 9445, false, "\n")
 	files := map[string][]byte{
 		"/etc/slipgate/tunnels/web/Caddyfile":          caddy,

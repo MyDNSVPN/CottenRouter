@@ -1076,9 +1076,9 @@ func forceSlipGateLoopback(configPath string) error {
 		if err != nil {
 			return err
 		}
-		patched, changed := privateSlipGateUnit(unit, tunnel.Port)
-		if bytes.Equal(unit, patched) && tunnel.Transport != "slipstream" {
-			return fmt.Errorf("SlipGate unit %s does not expose an expected listen address", path)
+		patched, changed, err := privateSlipGateUnit(unit, tunnel.Port, tunnel.Transport)
+		if err != nil {
+			return fmt.Errorf("SlipGate unit %s: %w", path, err)
 		}
 		if changed {
 			if err := atomicWrite(path, patched, 0644); err != nil {
@@ -1089,11 +1089,20 @@ func forceSlipGateLoopback(configPath string) error {
 	return nil
 }
 
-func privateSlipGateUnit(unit []byte, port int) ([]byte, bool) {
-	public := []byte(fmt.Sprintf("0.0.0.0:%d", port))
-	private := []byte(fmt.Sprintf("127.0.0.1:%d", port))
+// privateSlipGateUnit moves a DNS tunnel's listener onto loopback. A unit a
+// previous install already privatized is fine as it is: treating it as
+// unrecognized made every later SlipGate install and Advanced run fail once
+// the first one had succeeded. Slipstream passes host and port as separate
+// flags, so it has no host:port pair to find.
+func privateSlipGateUnit(unit []byte, port int, transport string) ([]byte, bool, error) {
+	public := fmt.Appendf(nil, "0.0.0.0:%d", port)
+	private := fmt.Appendf(nil, "127.0.0.1:%d", port)
 	patched := bytes.ReplaceAll(unit, public, private)
-	return patched, !bytes.Equal(unit, patched)
+	changed := !bytes.Equal(unit, patched)
+	if !changed && !bytes.Contains(unit, private) && transport != "slipstream" {
+		return nil, false, fmt.Errorf("does not expose an expected listen address")
+	}
+	return patched, changed, nil
 }
 
 func slipGateDNSTransport(value string) bool {

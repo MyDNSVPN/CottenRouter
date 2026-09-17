@@ -428,7 +428,7 @@ func (m Manager) Remove(ctx context.Context, projectID, routerConfig string, pur
 	if spec.Kind == ConfigSlipGate {
 		services = nil
 		output, _ := listSlipGateUnitFiles(ctx, m.Runner)
-		for _, line := range strings.Split(string(output), "\n") {
+		for line := range strings.SplitSeq(string(output), "\n") {
 			fields := strings.Fields(line)
 			if len(fields) > 0 {
 				services = append(services, strings.TrimSuffix(fields[0], ".service"))

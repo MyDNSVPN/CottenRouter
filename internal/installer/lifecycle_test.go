@@ -123,9 +123,19 @@ func TestAdvancedCottenRejectsRouterFrontDoHWithoutTrustedCertificate(t *testing
 }
 
 func TestSlipGateManagedDNSUnitIsForcedToLoopback(t *testing.T) {
-	unit, changed := privateSlipGateUnit([]byte("ExecStart=/usr/local/bin/dnstt-server domain 0.0.0.0:5310 upstream\n"), 5310)
-	if !changed || strings.Contains(string(unit), "0.0.0.0:5310") || !strings.Contains(string(unit), "127.0.0.1:5310") {
-		t.Fatalf("unit was not privatized: %s", unit)
+	unit, changed, err := privateSlipGateUnit([]byte("ExecStart=/usr/local/bin/dnstt-server domain 0.0.0.0:5310 upstream\n"), 5310, "dnstt")
+	if err != nil || !changed || strings.Contains(string(unit), "0.0.0.0:5310") || !strings.Contains(string(unit), "127.0.0.1:5310") {
+		t.Fatalf("unit was not privatized: %s (%v)", unit, err)
+	}
+	// A second install or Advanced run finds the unit already private.
+	if _, changed, err := privateSlipGateUnit(unit, 5310, "dnstt"); err != nil || changed {
+		t.Fatalf("already-private unit was rejected or rewritten: changed=%v err=%v", changed, err)
+	}
+	if _, _, err := privateSlipGateUnit([]byte("ExecStart=/usr/local/bin/vaydns-server -udp 0.0.0.0:9999\n"), 5312, "vaydns"); err == nil {
+		t.Fatal("a unit listening somewhere unexpected was accepted")
+	}
+	if _, _, err := privateSlipGateUnit([]byte("ExecStart=/usr/local/bin/slipstream-server --dns-listen-host 127.0.0.1 --dns-listen-port 5311\n"), 5311, "slipstream"); err != nil {
+		t.Fatalf("slipstream's separate host and port flags were rejected: %v", err)
 	}
 	if slipGateDNSTransport("naive") || !slipGateDNSTransport("vaydns") || !slipGateDNSTransport("external") {
 		t.Fatal("transport classification is unsafe")

@@ -436,8 +436,12 @@ type naiveCaddyShape struct {
 var (
 	naivePublicHeaderRE  = regexp.MustCompile(`^(?:(0\.0\.0\.0|\[::\]))?:([0-9]{1,5}),[ \t]*([^,{}[:space:]]+)[ \t]*\{$`)
 	naivePrivateHeaderRE = regexp.MustCompile(`^https://([^/:{}[:space:]]+):([0-9]{1,5})[ \t]*\{$`)
-	naiveBindRE          = regexp.MustCompile(`^[ \t]*bind[ \t]+([^#[:space:]]+)[ \t]*(?:#.*)?$`)
-	naiveAnyBindRE       = regexp.MustCompile(`^[ \t]*bind(?:[ \t]|$)`)
+	// The loopback form keeps SlipGate's bare ":port" address next to the
+	// domain. Without it Caddy host-matches every request against the domain
+	// and forward_proxy never sees a CONNECT to any other host.
+	naiveLoopbackHeaderRE = regexp.MustCompile(`^:([0-9]{1,5}),[ \t]*([^/:,{}[:space:]]+):([0-9]{1,5})[ \t]*\{$`)
+	naiveBindRE           = regexp.MustCompile(`^[ \t]*bind[ \t]+([^#[:space:]]+)[ \t]*(?:#.*)?$`)
+	naiveAnyBindRE        = regexp.MustCompile(`^[ \t]*bind(?:[ \t]|$)`)
 )
 
 func inspectNaiveCaddyfile(data []byte, domain string, publicPort, privateStart, privateEnd int) (*naiveCaddyShape, error) {
@@ -466,7 +470,14 @@ func inspectNaiveCaddyfile(data []byte, domain string, publicPort, privateStart,
 					return nil, fmt.Errorf("Caddyfile has more than one site block")
 				}
 				matchedDomain := ""
-				if match := naivePublicHeaderRE.FindStringSubmatch(trimmed); match != nil {
+				if match := naiveLoopbackHeaderRE.FindStringSubmatch(trimmed); match != nil {
+					if match[1] != match[3] {
+						return nil, fmt.Errorf("Caddyfile site address %q listens on two different ports", trimmed)
+					}
+					matchedDomain = match[2]
+					currentPort, _ = strconv.Atoi(match[1])
+					headerLoopback = true
+				} else if match := naivePublicHeaderRE.FindStringSubmatch(trimmed); match != nil {
 					currentPort, _ = strconv.Atoi(match[2])
 					matchedDomain = match[3]
 					if currentPort != publicPort {
@@ -527,7 +538,7 @@ func (shape *naiveCaddyShape) patch(domain string, privatePort int) ([]byte, err
 		return nil, fmt.Errorf("missing validated Caddyfile shape")
 	}
 	lines := append([]string(nil), shape.lines...)
-	lines[shape.headerIndex] = fmt.Sprintf("%shttps://%s:%d {", shape.headerIndent, domain, privatePort)
+	lines[shape.headerIndex] = fmt.Sprintf("%s:%d, %s:%d {", shape.headerIndent, privatePort, domain, privatePort)
 	bindLine := shape.headerIndent + "  bind 127.0.0.1"
 	if shape.bindIndex >= 0 {
 		lines[shape.bindIndex] = bindLine
