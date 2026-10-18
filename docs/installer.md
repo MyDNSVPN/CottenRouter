@@ -38,6 +38,9 @@ For a CottenDNS development build using `TUNNEL_MODE=cottenmax`, key results
 also show the validated client public key from `COTTENMAX_KEY_FILE.pub`.
 The signing seed stays private; the existing shared key keeps its normal
 `--show-secrets` requirement.
+CottenMax stays inside the CottenDNS project and shares its service and route.
+A supporting server with CottenMax enabled also accepts normal CottenDNS
+clients; users select normal/CottenMax mode in their clients.
 Thefeed's native wizard requires at least one channel/account source. SlipGate
 uses its full native wizard. The layout adapts to ordinary 80×24 terminals.
 

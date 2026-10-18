@@ -21,3 +21,17 @@ func TestCottenRouterLocalCottenMax(t *testing.T) {
 		})
 	}
 }
+
+// Enabling CottenMax in CottenDNS must keep normal clients working on the
+// same server configuration and the same single CottenDNS router entry.
+func TestCottenRouterLocalNormalClientsWithCottenMaxEnabled(t *testing.T) {
+	for _, method := range []int{1, 3} {
+		t.Run(fmt.Sprintf("encryption=%d", method), func(t *testing.T) {
+			server, _ := cottenMaxSettings(t)
+			resolver := func(t *testing.T, server *net.UDPAddr) []string {
+				return []string{startRouter(t, server).String()}
+			}
+			runTunnelEchoVia(t, 3, method, server+routerServerEdits, `["TXT"]`, "TUNNEL_MODE = \"legacy\"\nSTARTUP_MODE = \"resolvers\"\nTERMINAL_UI = \"plain\"\n", "127.0.0.1", tunnelBins{}, resolver)
+		})
+	}
+}

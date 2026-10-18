@@ -21,4 +21,4 @@ export COTTEN_ROUTER_DIR="$router_dir" COTTEN_RESOLVER_MATRIX=1
 export GOPROXY="${GOPROXY:-https://proxy.golang.org|direct}"
 cd "$work"
 go test -v -count=1 -tags=e2e -parallel=4 -timeout=15m \
-  -run '^TestDeployment$/^router$/(clean|realistic)/(default-txt|survival|all)/client=(1|3)$|^TestCottenRouterLocalCottenMax$|^TestCottenMaxBinaryModes$' ./test/e2e
+  -run '^TestDeployment$/^router$/(clean|realistic)/(default-txt|survival|all)/client=(1|3)$|^TestCottenRouterLocalCottenMax$|^TestCottenRouterLocalNormalClientsWithCottenMaxEnabled$|^TestCottenMaxBinaryModes$' ./test/e2e

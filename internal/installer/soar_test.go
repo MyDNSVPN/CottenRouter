@@ -337,7 +337,7 @@ func TestSoarBuildUsesPinnedSourceAndPrivateCaches(t *testing.T) {
 	if !strings.Contains(args, "github.com/getlantern/soar/cmd/soar-server@"+soarTestProject().CommitSHA) {
 		t.Fatalf("build did not pin its source to the verified commit: %s", args)
 	}
-	for _, name := range []string{"GOBIN", "GOTMPDIR", "GOCACHE", "GOMODCACHE"} {
+	for _, name := range []string{"GOBIN", "GOTMPDIR", "GOCACHE", "GOMODCACHE", "GOPATH"} {
 		found := false
 		for _, arg := range runner.buildArgs {
 			if strings.HasPrefix(arg, name+"=") {

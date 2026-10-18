@@ -15,6 +15,11 @@ TCP and certificate-pinned DoT on IPv4 and IPv6. It does not install system
 services or modify either checkout. Its temporary fixtures fix upstream's
 UDP-only port allocation and avoid putting a UDP simulator in the TCP path.
 
+CottenMax is a module inside CottenDNS, with one installer, service and router
+entry. Enable `TUNNEL_MODE="cottenmax"` in a supporting CottenDNS server to
+accept both normal and CottenMax clients; clients choose their mode. The gate
+also verifies normal XOR/AES clients against that CottenMax-enabled server.
+
 The 2026-10-18 release validation used local CottenDNS HEAD
 `48d6c81d45edd85aaf3b4a88f8ebc06c22b88574` plus its current uncommitted CottenMax
 changes. These local files are distinct from the published CottenDNS release

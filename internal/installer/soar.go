@@ -350,12 +350,14 @@ func (m Manager) buildSoar(ctx context.Context, project catalog.Project, buildDi
 	if err != nil {
 		return nil, err
 	}
-	for _, dir := range []string{"bin", "tmp", "cache", "mod"} {
+	for _, dir := range []string{"bin", "tmp", "cache", "mod", "gopath"} {
 		if err := os.MkdirAll(filepath.Join(buildDir, dir), 0700); err != nil {
 			return nil, err
 		}
 	}
-	args := []string{"GOBIN=" + filepath.Join(buildDir, "bin"), "GOTMPDIR=" + filepath.Join(buildDir, "tmp"), "GOCACHE=" + filepath.Join(buildDir, "cache"), "GOMODCACHE=" + filepath.Join(buildDir, "mod"), "GOTOOLCHAIN=auto", "CGO_ENABLED=0", "GOWORK=off", "GOFLAGS=", "GOPROXY=https://proxy.golang.org|direct", "GOSUMDB=sum.golang.org", goBinary, "install", "-trimpath", "github.com/getlantern/soar/cmd/soar-server@" + project.CommitSHA}
+	// This cache belongs only to the temporary build. Keep its module
+	// directories writable so unprivileged validation can remove it too.
+	args := []string{"GOBIN=" + filepath.Join(buildDir, "bin"), "GOTMPDIR=" + filepath.Join(buildDir, "tmp"), "GOCACHE=" + filepath.Join(buildDir, "cache"), "GOMODCACHE=" + filepath.Join(buildDir, "mod"), "GOPATH=" + filepath.Join(buildDir, "gopath"), "GOTOOLCHAIN=auto", "CGO_ENABLED=0", "GOWORK=off", "GOFLAGS=", "GOPROXY=https://proxy.golang.org|direct", "GOSUMDB=sum.golang.org", goBinary, "install", "-modcacherw", "-trimpath", "github.com/getlantern/soar/cmd/soar-server@" + project.CommitSHA}
 	if err := m.Runner.Run(ctx, "env", args, buildDir, false); err != nil {
 		return nil, fmt.Errorf("build Soar: %w", err)
 	}
