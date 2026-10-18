@@ -20,8 +20,9 @@ const (
 	upstreamStateDir = "/var/lib/cottenrouter/upstreams"
 )
 
-// installManifest records the immutable upstream installer that was actually
-// executed. Purge uses the same script instead of trusting a newer mutable URL.
+// installManifest records the immutable original upstream installer. Known
+// startup repairs apply only to its execution copy; purge uses the original
+// script instead of trusting a newer mutable URL.
 type installManifest struct {
 	Version       int       `json:"version"`
 	ProjectID     string    `json:"project_id"`
@@ -173,6 +174,11 @@ func loadInstallManifestFile(projectID string, locate func(string) (string, erro
 }
 
 func (m Manager) runNativeUninstall(ctx context.Context, spec Spec) error {
+	if spec.Kind == ConfigSoar {
+		// Soar has no native uninstaller: its binary, key, config, and source
+		// record all live in WorkDir. Remove purges that directory and its unit.
+		return nil
+	}
 	if spec.Kind == ConfigSlipGate {
 		slipgateBin, err := resolveSlipGateBinary(spec.WorkDir)
 		if err != nil {

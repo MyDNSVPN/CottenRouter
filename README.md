@@ -42,6 +42,8 @@ flowchart LR
     R -->|Longest DNS suffix| D2[MasterDnsVPN :5302]
     R -->|Longest DNS suffix| D3[StormDNS :5303]
     R -->|Longest DNS suffix| D4[thefeed :5304]
+    R -->|Longest DNS suffix, UDP| D6[Soar :5305]
+    R -->|Longest DNS suffix, UDP| D7[Soar 2.2 :5306]
     R -->|DNS route or TLS SNI| D5[SlipGate services]
     R -.->|Loopback only| A[Admin API :9088]
 ```
@@ -84,11 +86,24 @@ sudo cottenrouter tui
 
 The installer downloads the latest [official release](https://github.com/TaJirax/CottenRouter/releases/latest), verifies its checksum, checks required tools, systemd, disk space, and listeners, and waits for a successful health check. A failed installation restores the previous state. Running the command again performs an in-place upgrade.
 
+To install the current checkout, including local changes and all seven backends,
+run these commands from the repository root on Linux or inside WSL:
+
+```bash
+sudo bash scripts/install.sh --local-source="$PWD"
+sudo cottenrouter tui
+```
+
+Open **Install**, select projects with **Space**, and press **i** for the guided
+queue. **Tab** moves fields; **Enter** on the last field installs. Each project
+needs its own delegated domain. Thefeed asks for at least one source in its
+native setup; SlipGate opens its native multi-tunnel wizard.
+
 Install a specific release:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TaJirax/CottenRouter/main/scripts/install.sh \
-  | sudo bash -s -- --version=v1.2.17
+  | sudo bash -s -- --version=v1.2.18
 ```
 
 Install the current development branch:
@@ -133,7 +148,27 @@ sudo cottenrouter tui
 | `v` | Show credential paths and public values |
 | `V` | Reveal secrets after explicit confirmation |
 
-Give every backend a unique delegated domain, for example `cotten.example.com`, `master.example.com`, `storm.example.com`, and `feed.example.com`. Exact duplicate suffixes are rejected. Nested suffixes are supported and the longest match wins.
+Give every backend a unique delegated domain, for example `cotten.example.com`, `master.example.com`, `storm.example.com`, `feed.example.com`, and `soar.example.com`. Exact duplicate suffixes are rejected. Nested suffixes are supported and the longest match wins.
+
+### Soar
+
+Select **Soar** in the project manager, or install it directly:
+
+```bash
+sudo cottenrouter install --project=soar --domain=soar.example.com
+sudo cottenrouter keys --project=soar
+```
+
+**Soar** builds the latest resolved official Lantern commit, provisions a compatible Go toolchain when needed, and creates `soar-server` on UDP `127.0.0.1:5305`. Source builds need network access for Go and module downloads plus disk space for the compiler and build cache.
+
+**Soar 2.2** is a separate option using WhiteDNS's standalone setup 0.1.3 bundle with the **older Lantern engine v0.2.2**. It downloads a checksum-verified prebuilt `amd64` binary and runs `soar22-server` on UDP `127.0.0.1:5306`:
+
+```bash
+sudo cottenrouter install --project=soar22 --domain=soar22.example.com
+sudo cottenrouter keys --project=soar22
+```
+
+Both options can run together with separate delegated zones, ports, and keys. CottenRouter manages their services; WhiteDNS's native wizard, manager, and web panel are not run. Each option uses one delegated zone; backend TCP, DoT, DoH, extra domains, and chat domains are unavailable. Share each displayed **public key** with its clients; private seeds stay on disk and survive reinstallation. See [Soar setup](docs/soar.md) for configuration and verification.
 
 ---
 
@@ -274,7 +309,7 @@ Pinning a version is useful for reproducible deployments or returning to a known
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TaJirax/CottenRouter/main/scripts/install.sh \
-  | sudo bash -s -- --version=v1.2.17
+  | sudo bash -s -- --version=v1.2.18
 ```
 
 Available versions are listed on the [Releases page](https://github.com/TaJirax/CottenRouter/releases).
@@ -372,7 +407,7 @@ go vet ./...
 gofmt -w cmd internal
 ```
 
-CI also checks five-backend isolation under load, full `16 KiB` packets, throughput, concurrent DoT/DoH and NaiveProxy/StunTLS routing, formatting, and the rootless Docker image.
+CI also checks backend isolation under load, full `16 KiB` packets, throughput, concurrent DoT/DoH and NaiveProxy/StunTLS routing, formatting, and the rootless Docker image.
 
 Use [Issues](https://github.com/TaJirax/CottenRouter/issues) for bugs and feature requests, and [Pull Requests](https://github.com/TaJirax/CottenRouter/pulls) for code contributions.
 
@@ -383,6 +418,7 @@ Use [Issues](https://github.com/TaJirax/CottenRouter/issues) for bugs and featur
 | [Docker](docs/docker.md) | Rootless container layout, networking, images, and updates |
 | [Installer and control deck](docs/installer.md) | TUI controls, ports, panels, safeguards, and removal |
 | [Backend integration](docs/backend-integration.md) | Domains, listeners, feature boundaries, and project notes |
+| [Soar setup](docs/soar.md) | Official Soar and WhiteDNS's older Soar 2.2 option, routing, keys, and verification |
 | [Security](docs/security.md) | Flood controls, resource limits, systemd hardening, and swap |
 | [Configuration example](cottenrouter.example.json) | Complete annotated-style configuration starting point |
 | [Release notes v1.2.13](docs/releases/v1.2.13.md) | What changed since v1.2.10, upgrade steps, and load-test results |
@@ -399,9 +435,11 @@ CottenRouter is designed to interoperate with these independent open-source proj
 | **MasterDnsVPN** | DNS tunneling backend | [Repository](https://github.com/masterking32/MasterDnsVPN) |
 | **StormDNS** | DNS tunneling backend | [Repository](https://github.com/nullroute1970/StormDNS) |
 | **thefeed** | Feed, chat, media, and relay over DNS | [Repository](https://github.com/sartoopjj/thefeed) |
+| **Soar** | Encrypted TCP streams through recursive DNS resolvers | [Repository](https://github.com/getlantern/soar) |
+| **Soar 2.2 / WhiteDNS** | Standalone bundle of Lantern Soar v0.2.2 | [Repository](https://github.com/WhiteDNS/Soar-Server) |
 | **SlipGate** | DNS transports, SlipNet, NaiveProxy, and StunTLS | [Repository](https://github.com/anonvector/slipgate) |
 
-The terminal UI is built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](https://github.com/charmbracelet/bubbles), and [Lip Gloss](https://github.com/charmbracelet/lipgloss) from [Charm](https://charm.sh/). The secure Docker image is based on [Distroless](https://github.com/GoogleContainerTools/distroless). Complete dependency lists are available in [`go.mod`](go.mod) and [`go.sum`](go.sum).
+The terminal UI is built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](https://github.com/charmbracelet/bubbles), and [Lip Gloss](https://github.com/charmbracelet/lipgloss) from [Charm](https://charm.sh/). The Docker runtime uses `scratch` with the static router and trusted CA certificates. Complete dependency lists are available in [`go.mod`](go.mod) and [`go.sum`](go.sum).
 
 No upstream source tree or binary is vendored in this repository. Every upstream project retains its own copyright and license, and its installer is fetched directly from its repository only when requested by the operator. See [`NOTICE.md`](NOTICE.md).
 

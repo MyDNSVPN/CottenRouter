@@ -846,9 +846,13 @@ func TestUDPReplyWithWrongQuestionDoesNotConsumeMapping(t *testing.T) {
 	}
 	server.stats.SessionOpen("dns/udp", "poison")
 
-	forged := makeReply("attacker.example", id, 0xee)
-	if _, err := upstream.WriteToUDP(forged, backend.conn.LocalAddr().(*net.UDPAddr)); err != nil {
-		t.Fatal(err)
+	for _, forged := range [][]byte{
+		makeReply("attacker.example", id, 0xee),
+		makeQuery("poison.example", id), // QR=0 must not consume the mapping either.
+	} {
+		if _, err := upstream.WriteToUDP(forged, backend.conn.LocalAddr().(*net.UDPAddr)); err != nil {
+			t.Fatal(err)
+		}
 	}
 	buffer := make([]byte, 512)
 	_ = client.SetReadDeadline(time.Now().Add(150 * time.Millisecond))
@@ -873,5 +877,62 @@ func TestUDPReplyWithWrongQuestionDoesNotConsumeMapping(t *testing.T) {
 	}
 	if binary.BigEndian.Uint16(buffer[:2]) != 0x1234 || buffer[n-1] != 0xaa {
 		t.Fatalf("genuine reply was not delivered: id=%x marker=%x", binary.BigEndian.Uint16(buffer[:2]), buffer[n-1])
+	}
+}
+
+func TestTCPRejectsMismatchedBackendResponses(t *testing.T) {
+	for _, scenario := range []string{"query-direction", "transaction-id", "question-name", "question-type", "question-class"} {
+		t.Run(scenario, func(t *testing.T) {
+			backend, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer backend.Close()
+			go func() {
+				conn, err := backend.Accept()
+				if err != nil {
+					return
+				}
+				defer conn.Close()
+				_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+				packet, err := readTCPMessage(conn, 4096)
+				if err != nil {
+					return
+				}
+				packet[2] |= 0x80
+				switch scenario {
+				case "query-direction":
+					packet[2] &^= 0x80
+				case "transaction-id":
+					packet[0] ^= 0xff
+				case "question-name":
+					packet[13] = 'x'
+				case "question-type":
+					packet[len(packet)-3] ^= 1
+				case "question-class":
+					packet[len(packet)-1] ^= 1
+				}
+				_ = writeFramedDNS(conn, packet)
+			}()
+			server, err := New(config.Config{Routes: []config.Route{{Name: "tcp", Domains: []string{"tcp.example"}, Backend: "127.0.0.1:5399", TCPBackend: backend.Addr().String()}}}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer server.Close()
+			client, frontend := net.Pipe()
+			defer client.Close()
+			_ = client.SetDeadline(time.Now().Add(2 * time.Second))
+			go func() {
+				defer frontend.Close()
+				server.handleTCPQuery(frontend, &sync.Mutex{}, makeQuery("tcp.example", 0x1234))
+			}()
+			response, err := readTCPMessage(client, 4096)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if binary.BigEndian.Uint16(response[:2]) != 0x1234 || binary.BigEndian.Uint16(response[2:4])&0x800f != 0x8002 {
+				t.Fatalf("invalid backend response was forwarded instead of SERVFAIL: %x", response)
+			}
+		})
 	}
 }

@@ -41,9 +41,9 @@ binds the privileged host port.
 
 That is why the container can run with `user: 65532`, `cap_drop: ALL`,
 `read_only: true`, and `no-new-privileges`. Nothing in the image needs to write
-to its own filesystem, and the image itself has no shell and no package manager
-(`gcr.io/distroless/static:nonroot`), so there is nothing to exec into if it is
-ever reached.
+to its own filesystem. The final image uses `scratch` and includes only the
+static router, configuration, and trusted CA roots from the build stage. It has
+no shell or package manager and requires no additional runtime registry image.
 
 If you prefer `network_mode: host`, the router must bind 53 directly. Then you
 do need `cap_add: [NET_BIND_SERVICE]` and `listen_udp`/`listen_tcp` set back to

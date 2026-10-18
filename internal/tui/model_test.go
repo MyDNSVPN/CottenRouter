@@ -37,6 +37,58 @@ func TestInstallFormKeepsNativeProjectChoices(t *testing.T) {
 	}
 }
 
+func TestSoarFormAllowsOnlyOneZoneAndUDP(t *testing.T) {
+	for _, id := range []string{"soar", "soar22"} {
+		t.Run(id, func(t *testing.T) {
+			model := New("", "")
+			model.tab = 1
+			for i, spec := range model.projects {
+				if spec.ID == id {
+					model.cursor = i
+				}
+			}
+			if model.projects[model.cursor].ID != id {
+				t.Fatalf("%s is missing from the project manager", id)
+			}
+			// Unsupported flags from an older state must not enter a new form.
+			model.projectStates[id] = installer.ProjectState{ID: id, Installed: true, EnableTCP: true, EnableDoT: true, EnableDoH: true}
+			updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+			got := updated.(Model)
+			if !got.form || len(got.fields) != 2 || got.fields[0].key != "domain" || got.fields[1].key != "port" {
+				t.Fatalf("%s needs exactly a zone and private port: %+v", id, got.fields)
+			}
+			for _, key := range []tea.KeyType{tea.KeyCtrlT, tea.KeyCtrlD, tea.KeyCtrlH} {
+				updated, _ = got.Update(tea.KeyMsg{Type: key})
+				got = updated.(Model)
+			}
+			if got.enableTCP || got.enableDoT || got.enableDoH {
+				t.Fatal("enabled an unsupported transport")
+			}
+			view := got.formView(110)
+			if strings.Contains(view, "Ctrl+T") || !strings.Contains(view, "UDP-only") {
+				t.Fatalf("form advertises unsupported transport controls:\n%s", view)
+			}
+			want := "latest official Lantern source"
+			if id == "soar22" {
+				want = "older Lantern engine v0.2.2"
+			}
+			if !strings.Contains(view, want) {
+				t.Fatalf("form does not identify its engine source (%q):\n%s", want, view)
+			}
+		})
+	}
+}
+
+func TestProjectManagerDistinguishesSoarVersions(t *testing.T) {
+	model := New("", "")
+	view := model.installView(140)
+	for _, want := range []string{"Soar 2.2", ":5305", ":5306", "latest Lantern", "WhiteDNS", "Lantern v0.2.2", "amd64"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("project manager does not distinguish Soar versions (%q):\n%s", want, view)
+		}
+	}
+}
+
 func TestProjectManagerSelectionAndInstalledState(t *testing.T) {
 	model := New("", "")
 	model.width, model.tab = 120, 1
@@ -113,6 +165,7 @@ func TestInstalledSlipGateUsesNativeAdvancedSettings(t *testing.T) {
 	}
 
 	model = got
+	model.busy = false // the interactive Advanced child has returned
 	updated, cmd = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 	got = updated.(Model)
 	if cmd != nil || !strings.Contains(got.notice, "individual tunnel") {

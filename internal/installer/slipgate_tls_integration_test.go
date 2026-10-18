@@ -199,7 +199,7 @@ func TestInstallRollbackRestoresPriorServiceStateAndStopsNewSlipGateUnits(t *tes
 		"systemctl disable --now slipgate-web",
 		"systemctl disable --now slipgate-socks5",
 		"systemctl enable slipgate-dns",
-		"systemctl start slipgate-dns",
+		"systemctl restart slipgate-dns",
 	} {
 		if !strings.Contains(commands, want) {
 			t.Errorf("rollback command %q missing from:\n%s", want, commands)

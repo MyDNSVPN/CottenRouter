@@ -12,18 +12,25 @@ query is in flight.
 | MasterDnsVPN | `masterdnsvpn` | `UDP_HOST = "127.0.0.1"`, `UDP_PORT = 5302` | `127.0.0.1:5302` |
 | StormDNS | `stormdns` | `UDP_HOST = "127.0.0.1"`, `UDP_PORT = 5303` | `127.0.0.1:5303` |
 | thefeed | `thefeed-server` | `THEFEED_LISTEN=127.0.0.1:5304` | `127.0.0.1:5304` |
+| Soar | `soar-server` | `SOAR_LISTEN=127.0.0.1:5305` | `127.0.0.1:5305` UDP only |
+| Soar 2.2 | `soar22-server` | `SOAR_LISTEN=127.0.0.1:5306` | `127.0.0.1:5306` UDP only |
 | SlipGate DNS tunnels | `slipgate-{tag}` | Native tunnel ports from `/etc/slipgate/config.json` | Automatically imported |
 
-The upstream installers currently default to public port 53. During the future
-TUI phase, an adapter must install one project at a time, change its listener
-before it is started, and then restore/start CottenRouter. Blindly running all
-four upstream scripts in sequence is unsafe because their port-conflict logic
-was designed for standalone installation.
+Use the TUI or `cottenrouter install` to install one project at a time. Its
+adapter plans private listeners, snapshots configuration, and checks port
+ownership before committing the router changes. Native upstream installers
+often assume standalone public port 53; CottenRouter applies its loopback
+integration before accepting the installation. Soar builds the latest resolved
+official Lantern source. The separate Soar 2.2 option uses WhiteDNS standalone
+setup 0.1.3's verified amd64 bundle with the older Lantern engine v0.2.2. Both
+use CottenRouter's lifecycle instead of WhiteDNS's native standalone wizard,
+manager, or optional web panel.
 
 Each routed service needs a unique domain or subdomain, for example
-`cotten.example.com`, `master.example.com`, `storm.example.com`, and
-`feed.example.com`. Two services cannot own the exact same suffix. Nested
-suffixes are supported; the longest suffix wins.
+`cotten.example.com`, `master.example.com`, `storm.example.com`,
+`feed.example.com`, `soar.example.com`, and `soar22.example.com`. Two services
+cannot own the exact same suffix. Nested suffixes are supported; the longest
+suffix wins.
 
 ## Feature boundaries
 
@@ -51,19 +58,27 @@ suffixes are supported; the longest suffix wins.
   CottenRouter TLS route explicitly.
 - Add every thefeed main, extra, and chat domain to the same route. CottenRouter
   does not interpret feed, messenger, media, signing, or relay payloads.
+- Soar and Soar 2.2 each use one delegated zone and a UDP-only listener. Each
+  route sets `tcp_backend` to `disabled`; do not enable backend TCP, DoT, or DoH. All DNS
+  question types under the zone reach Soar, including SOA and intermediate
+  names used by QNAME-minimising resolvers. Share its Ed25519 public key with
+  clients and retain the private seed on the server. They can run together
+  using distinct zones, ports, and seeds. See [Soar setup](soar.md).
 - When `slipgate_configs` is used, stop and disable `slipgate-dnsrouter` only.
   Keep all `slipgate-{tag}`, SOCKS, SSH, NaiveProxy, and StunTLS services. HMAC
   verification probes are answered using imported public keys/certificates.
 
 The native SlipGate import covers all DNS transports and their verification
-material. TLS services stay explicit because SlipGate's default public `:443`
-must first be moved to a private listener; the future TUI adapter will perform
-that service rewrite transactionally. See `cottenrouter.example.json` for
-NaiveProxy and StunTLS SNI routes.
+material. The installer moves managed TLS services to private loopback
+listeners and creates their router SNI routes transactionally. See
+`cottenrouter.example.json` for NaiveProxy and StunTLS SNI routes.
 
 ## Installer freshness
 
 `cottenrouter catalog` contacts GitHub for every project's current default
-branch and verifies the installer path before producing a command. The future
-TUI installer must call this online resolver immediately before showing or
-executing a command; it must not install from the bundled offline fallback.
+branch (or an explicitly pinned compatibility release), pins its commit, and verifies the installer path before producing a
+command. For Soar it verifies `go.mod` and produces a pinned `go install`
+command. Soar 2.2 instead pins WhiteDNS's standalone 0.1.3 release and verifies
+the downloaded archive and its bundled manifest before using its prebuilt
+Lantern v0.2.2 server. The TUI and CLI resolve the selected repository immediately
+before installation; the bundled offline catalog is informational.

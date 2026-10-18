@@ -2,7 +2,7 @@
 Description=CottenRouter multi-backend DNS and TLS router
 After=network-online.target
 Wants=network-online.target
-Before=cottendns.service masterdnsvpn.service stormdns.service thefeed-server.service slipgate-dnsrouter.service
+Before=cottendns.service masterdnsvpn.service stormdns.service thefeed-server.service slipgate-dnsrouter.service soar-server.service soar22-server.service
 StartLimitIntervalSec=0
 
 [Service]

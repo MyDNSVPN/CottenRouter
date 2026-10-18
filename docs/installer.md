@@ -1,8 +1,20 @@
 # Installer and control deck
 
-Run `sudo cottenrouter tui` on Linux. The Install tab collects safe integration
-settings, then hands control to the selected project's current native installer
-for its advanced settings.
+Run `sudo cottenrouter tui` on Linux. The Project Manager collects integration
+settings, then runs the selected project's current native installer or builds
+Soar from its resolved upstream Go source.
+
+Install this checkout, including uncommitted updates, from the repository root:
+
+```bash
+sudo bash scripts/install.sh --local-source="$PWD"
+sudo cottenrouter tui
+```
+
+This builds the current local files and stages matching scripts and units. It
+does not select a published release. The normal online bootstrap still installs
+the latest stable release. Local builds need Go/module download access when
+the required toolchain or dependencies are not already available.
 
 The Project Manager distinguishes selected, installed, and integrated states:
 
@@ -18,10 +30,39 @@ The Project Manager distinguishes selected, installed, and integrated states:
 - `v` shows credential locations/public values. `V` requires confirmation
   before displaying shared secrets on screen.
 
-Each installation resolves the current upstream default branch, inventories
+All seven projects appear in the same list. The guided queue shows its current
+step and keeps invalid entries open for correction. Tab/Shift+Tab and arrow keys
+move between fields; Enter on the last field submits. Ctrl+O toggles DoH,
+leaving Ctrl+H available for backspace. Key results stay visible until dismissed.
+For a CottenDNS development build using `TUNNEL_MODE=cottenmax`, key results
+also show the validated client public key from `COTTENMAX_KEY_FILE.pub`.
+The signing seed stays private; the existing shared key keeps its normal
+`--show-secrets` requirement.
+Thefeed's native wizard requires at least one channel/account source. SlipGate
+uses its full native wizard. The layout adapts to ordinary 80×24 terminals.
+
+Soar and Soar 2.2 each have a guided form for a single delegated zone and private UDP port.
+They have no extra/chat domains or TCP/DoT/DoH toggles. The Advanced editor manages
+`SOAR_ZONE`, `SOAR_LISTEN`, and `SOAR_ALLOW_PORTS` in
+`/opt/cottenrouter/backends/soar/soar.env`. See [Soar setup](soar.md).
+
+Each installation resolves the current upstream default branch (Soar 2.2 uses
+WhiteDNS's pinned `v0.1.3` release tag), inventories
 listeners, snapshots configuration, runs the native setup, forces DNS onto
 loopback, validates and atomically updates the router, installs resource limits,
 and restarts the services. Configuration snapshots are restored on failure.
+Soar's source build provisions a compatible Go toolchain when needed and
+requires network access to Go toolchain/module downloads plus disk space for
+the compiler, dependencies, and cache. Its private server seed is created once
+and retained on reinstall; `keys --project=soar` displays the public client key.
+
+Downloaded native installers are preserved at their pinned commit for removal.
+The MasterDnsVPN execution copy repairs a known startup defect: its one-time
+key-generation flags must not enter the persistent service's `ExecStart`.
+Key initialization and the original recorded installer remain intact.
+For SlipGate, the service guard makes its exact known public resolver drop-in
+readable before restarting systemd-resolved, even with a restrictive user umask.
+Keys and unrelated native output retain the caller's umask.
 
 ## Ports and panels
 
@@ -70,7 +111,7 @@ memory, goroutines, and uptime. The loopback-only API is available at
 
 ## Compatibility gate
 
-CI repeatedly runs all five DNS backend shapes through one frontend under
+CI repeatedly runs DNS backend shapes through one frontend under
 parallel load. The gate requires every reply to retain its backend marker and
 original transaction ID, accepts no loss, exercises the full 16 KiB datagram,
 and rejects throughput below 100 local queries/second. A separate concurrent

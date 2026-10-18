@@ -10,14 +10,15 @@ RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags="-s -w -X main.version=${VERSION}" \
       -o /out/cottenrouter ./cmd/cottenrouter
 
-# distroless/static:nonroot has no shell, no package manager, and runs as UID
-# 65532. The router listens on unprivileged 5353 inside the container, so it
-# needs neither root nor NET_BIND_SERVICE; publish host 53 to 5353 instead.
-FROM gcr.io/distroless/static:nonroot
+# The static binary only needs trusted CA roots. A scratch runtime keeps the
+# image shell-free and avoids a second registry dependency for the final stage.
+# Port 5353 needs neither root nor NET_BIND_SERVICE; publish host 53 to it.
+FROM scratch
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /out/cottenrouter /usr/local/bin/cottenrouter
 COPY cottenrouter.docker.json /etc/cottenrouter/config.json
 
-USER nonroot:nonroot
+USER 65532:65532
 EXPOSE 5353/udp 5353/tcp 8853/tcp 8443/tcp
 
 # The binary is its own health probe: the image carries no curl or wget.

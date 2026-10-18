@@ -35,7 +35,8 @@ Options:
   --purge                 Also delete /etc/cottenrouter and its router config.
   --purge-backends        Also stop, disable, and uninstall all DNS backend
                           services that CottenRouter installed (cottendns,
-                          masterdnsvpn, stormdns, thefeed-server, slipgate-*).
+                          masterdnsvpn, stormdns, thefeed-server, soar-server, soar22-server,
+                          slipgate-*).
                           Requires --purge and --confirm CottenRouter.
   --remove-swap           Remove swap only if this installer created it.
   --confirm CottenRouter  Required with --purge, --purge-backends, or --remove-swap.
@@ -134,7 +135,7 @@ systemctl disable cottenrouter >/dev/null 2>&1 || true
 
 # Remove only drop-ins created by CottenRouter. Upstream unit files, binaries,
 # data, users, firewall rules, and panel files remain owned by their projects.
-managed_services=(cottendns masterdnsvpn stormdns thefeed-server slipgate-dnsrouter)
+managed_services=(cottendns masterdnsvpn stormdns thefeed-server soar-server soar22-server slipgate-dnsrouter)
 for service_name in "${managed_services[@]}"; do
   dropin_dir="/etc/systemd/system/${service_name}.service.d"
   remove_owned_dropin "${dropin_dir}/cottenrouter.conf"
@@ -223,12 +224,14 @@ rm -f -- "${UNINSTALL_BIN_PATH}"
 # Remove all managed DNS backend services and their data when requested.
 backends_removed=false
 if ${purge_backends}; then
-  readonly BACKEND_SERVICES=(cottendns masterdnsvpn stormdns thefeed-server)
+  readonly BACKEND_SERVICES=(cottendns masterdnsvpn stormdns thefeed-server soar-server soar22-server)
   readonly BACKEND_DIRS=(
     /opt/cottenrouter/backends/cottendns
     /opt/cottenrouter/backends/masterdnsvpn
     /opt/cottenrouter/backends/stormdns
     /opt/thefeed
+    /opt/cottenrouter/backends/soar
+    /opt/cottenrouter/backends/soar22
   )
   readonly BACKEND_IDS=(cottendns masterdnsvpn stormdns thefeed)
   readonly PROJECT_STATE_DIR=/var/lib/cottenrouter/projects
@@ -266,7 +269,15 @@ if ${purge_backends}; then
       # installers that actually implement the flag.
       grep -q -- '--uninstall' "${installer_file}" || break
       echo "Running pinned native uninstaller for ${backend_id}..."
-      bash "${installer_file}" --uninstall 2>/dev/null || echo "  native ${backend_id} uninstaller returned non-zero (may be expected)"
+      # The TOML installers resolve INSTALL_DIR from their working directory.
+      # Running in the caller's directory can delete unrelated local files.
+      case ${backend_id} in
+        cottendns|masterdnsvpn|stormdns) backend_work_dir="/opt/cottenrouter/backends/${backend_id}" ;;
+        thefeed) backend_work_dir=/opt/thefeed ;;
+        slipgate) backend_work_dir=/etc/slipgate ;;
+      esac
+      [[ -d ${backend_work_dir} && ! -L ${backend_work_dir} ]] || break
+      (cd -- "${backend_work_dir}" && bash "${installer_file}" --uninstall) 2>/dev/null || echo "  native ${backend_id} uninstaller returned non-zero (may be expected)"
       break
     done
   done

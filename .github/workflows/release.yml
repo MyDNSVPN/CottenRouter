@@ -20,8 +20,10 @@ jobs:
           cache: true
       - run: go test ./...
       - run: go vet ./...
-      - run: bash -n scripts/*.sh
+      - run: for script in scripts/*.sh; do bash -n "$script"; done
       - run: bash scripts/install-parse-test.sh
+      - run: bash scripts/install-state-test.sh
+      - run: bash scripts/install-local-test.sh
       - name: Build release binaries
         env:
           CGO_ENABLED: '0'
@@ -43,9 +45,11 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          body_path: docs/releases/${{ github.ref_name }}.md
           generate_release_notes: true
 
   image:
+    needs: release
     runs-on: ubuntu-latest
     permissions:
       contents: read

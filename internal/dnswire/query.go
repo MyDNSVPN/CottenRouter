@@ -10,6 +10,7 @@ import (
 var (
 	ErrShortPacket      = errors.New("DNS packet is shorter than its header")
 	ErrNotQuery         = errors.New("DNS packet is not a query")
+	ErrNotReply         = errors.New("DNS packet is not a reply")
 	ErrNoQuestion       = errors.New("DNS packet has no question")
 	ErrCompressedQNAME  = errors.New("compressed QNAME is not accepted in a query")
 	ErrInvalidLabel     = errors.New("invalid DNS label")
@@ -39,8 +40,8 @@ func ParseQuestion(packet []byte) (Question, error) {
 }
 
 // ParseReplyQuestion returns the first question echoed back in a DNS reply. It
-// is the same parser as ParseQuestion without the query-direction check, so a
-// forwarder can confirm a reply answers the question it actually asked.
+// checks the response direction as well as the question, so a forwarder can
+// confirm a reply answers the question it actually asked.
 func ParseReplyQuestion(packet []byte) (Question, error) {
 	return parseQuestion(packet, false)
 }
@@ -51,6 +52,9 @@ func parseQuestion(packet []byte, mustBeQuery bool) (Question, error) {
 	}
 	if mustBeQuery && binary.BigEndian.Uint16(packet[2:4])&0x8000 != 0 {
 		return Question{}, ErrNotQuery
+	}
+	if !mustBeQuery && binary.BigEndian.Uint16(packet[2:4])&0x8000 == 0 {
+		return Question{}, ErrNotReply
 	}
 	if binary.BigEndian.Uint16(packet[4:6]) == 0 {
 		return Question{}, ErrNoQuestion

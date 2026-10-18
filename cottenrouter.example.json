@@ -75,6 +75,18 @@
       "domains": ["feed.example.com", "chat.example.com"],
       "backend": "127.0.0.1:5304",
       "tcp_backend": "disabled"
+    },
+    {
+      "name": "soar",
+      "domains": ["soar.example.com"],
+      "backend": "127.0.0.1:5305",
+      "tcp_backend": "disabled"
+    },
+    {
+      "name": "soar22",
+      "domains": ["soar22.example.com"],
+      "backend": "127.0.0.1:5306",
+      "tcp_backend": "disabled"
     }
   ]
 }

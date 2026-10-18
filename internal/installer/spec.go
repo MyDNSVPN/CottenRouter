@@ -15,6 +15,7 @@ const (
 	ConfigTOML     ConfigKind = "toml"
 	ConfigEnv      ConfigKind = "env"
 	ConfigSlipGate ConfigKind = "slipgate"
+	ConfigSoar     ConfigKind = "soar"
 )
 
 type Spec struct {
@@ -31,6 +32,8 @@ func Specs() []Spec {
 		{ID: "stormdns", Name: "StormDNS", Service: "stormdns", WorkDir: "/opt/cottenrouter/backends/stormdns", ConfigPath: "/opt/cottenrouter/backends/stormdns/server_config.toml", TemplatePath: "server_config.toml.simple", Kind: ConfigTOML, DefaultPort: 5303},
 		{ID: "thefeed", Name: "thefeed", Service: "thefeed-server", WorkDir: "/opt/thefeed", ConfigPath: "/opt/thefeed/data/thefeed.env", Kind: ConfigEnv, DefaultPort: 5304},
 		{ID: "slipgate", Name: "SlipGate", Service: "slipgate-dnsrouter", WorkDir: "/etc/slipgate", ConfigPath: "/etc/slipgate/config.json", Kind: ConfigSlipGate, DefaultPort: 5310},
+		{ID: "soar", Name: "Soar", Service: "soar-server", WorkDir: "/opt/cottenrouter/backends/soar", ConfigPath: "/opt/cottenrouter/backends/soar/soar.env", Kind: ConfigSoar, DefaultPort: 5305},
+		{ID: "soar22", Name: "Soar 2.2", Service: "soar22-server", WorkDir: "/opt/cottenrouter/backends/soar22", ConfigPath: "/opt/cottenrouter/backends/soar22/soar.env", Kind: ConfigSoar, DefaultPort: 5306},
 	}
 }
 
@@ -101,6 +104,14 @@ func (r *Request) Validate() (Spec, error) {
 	}
 	if r.RouterConfig == "" {
 		r.RouterConfig = "/etc/cottenrouter/config.json"
+	}
+	if spec.Kind == ConfigSoar && (r.ExtraDomains != "" || r.ChatDomains != "") {
+		return Spec{}, fmt.Errorf("Soar serves one delegated zone; extra and chat domains are not supported")
+	}
+	if spec.Kind == ConfigSoar {
+		if err := validateSoarZone(r.Domain); err != nil {
+			return Spec{}, err
+		}
 	}
 	if r.EnableTCP && !spec.SupportsTCP {
 		return Spec{}, fmt.Errorf("%s does not expose DNS-over-TCP", spec.Name)

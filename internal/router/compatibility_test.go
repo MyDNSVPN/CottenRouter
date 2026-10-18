@@ -16,7 +16,7 @@ import (
 )
 
 // TestAllDNSBackendsShareOneFrontendUnderLoad is the compatibility gate for
-// CottenDNS, MasterDnsVPN, StormDNS, thefeed, and SlipGate DNS transports. It
+// CottenDNS, MasterDnsVPN, StormDNS, thefeed, SlipGate, and Soar DNS transports. It
 // deliberately reuses transaction IDs across projects and drives every route
 // concurrently, catching cross-route replies, loss, serialization, and ID
 // restoration regressions.
@@ -33,6 +33,7 @@ func TestAllDNSBackendsShareOneFrontendUnderLoad(t *testing.T) {
 		{name: "stormdns", domain: "storm.compat.test", marker: 0xa3},
 		{name: "thefeed", domain: "feed.compat.test", marker: 0xa4},
 		{name: "slipgate", domain: "slip.compat.test", marker: 0xa5},
+		{name: "soar", domain: "soar.compat.test", marker: 0xa6},
 	}
 	routes := make([]config.Route, 0, len(fixtures))
 	for i := range fixtures {
@@ -101,7 +102,7 @@ func TestAllDNSBackendsShareOneFrontendUnderLoad(t *testing.T) {
 	elapsed := time.Since(started)
 	queries := perBackend * len(fixtures)
 	rate := float64(queries) / elapsed.Seconds()
-	t.Logf("lossless five-backend throughput: %.0f queries/s (%d replies in %s)", rate, queries, elapsed.Round(time.Millisecond))
+	t.Logf("lossless six-backend throughput: %.0f queries/s (%d replies in %s)", rate, queries, elapsed.Round(time.Millisecond))
 	if rate < 100 {
 		t.Fatalf("router throughput regression: %.1f queries/s for %d lossless replies", rate, queries)
 	}

@@ -20,9 +20,24 @@ readonly FIREWALL_MARKER=${STATE_DIR}/firewall.created-by-cottenrouter
 
 # Standardised download behaviour: bounded, retried, never hangs forever.
 fetch() {
+  local retry_options=(--retry 5)
+  # Ubuntu 20.04 ships curl 7.68; --retry-all-errors was added in 7.71.
+  # Probe the option so the bootstrap remains usable on its supported floor.
+  if curl --help all 2>/dev/null | grep -- '--retry-all-errors' >/dev/null; then
+    retry_options+=(--retry-all-errors)
+  fi
   curl --fail --location --silent --show-error \
-       --retry 5 --retry-all-errors \
+       "${retry_options[@]}" \
        --connect-timeout 10 --max-time 300 "$@"
+}
+
+download_go_archive() {
+  local archive_name=$1 output_path=$2
+  if fetch "https://go.dev/dl/${archive_name}" -o "${output_path}"; then
+    return 0
+  fi
+  printf 'Official Go download failed; trying an alternate mirror (the official SHA-256 is still required).\n' >&2
+  fetch "https://mirrors.aliyun.com/golang/${archive_name}" -o "${output_path}"
 }
 
 fail() {
@@ -44,6 +59,8 @@ swap_mode=auto
 channel=stable
 requested_version=""
 build_mode=auto
+local_source=""
+remote_channel_selected=false
 usage() {
   cat <<'USAGE'
 Usage: install.sh [options]
@@ -52,6 +69,7 @@ Usage: install.sh [options]
   --channel=stable     install the latest tagged release (default)
   --channel=edge       build the current default-branch commit from source
   --build-from-source  compile locally even when a release binary exists
+  --local-source=PATH  build this checkout, including uncommitted changes
   --no-swap            skip the swap safeguard entirely
 USAGE
 }
@@ -59,7 +77,8 @@ for arg in "$@"; do
   case ${arg} in
     --no-swap) swap_mode=off ;;
     --build-from-source) build_mode=source ;;
-    --channel=stable|--channel=edge) channel=${arg#--channel=} ;;
+    --channel=stable|--channel=edge) channel=${arg#--channel=}; remote_channel_selected=true ;;
+    --local-source=*) local_source=${arg#--local-source=}; [[ -n ${local_source} ]] || fail "--local-source requires a checkout directory" ;;
     --version=*)
       requested_version=${arg#--version=}
       channel=stable
@@ -70,6 +89,38 @@ for arg in "$@"; do
   esac
 done
 [[ ${channel} != edge ]] || build_mode=source
+if [[ -n ${local_source} ]]; then
+  [[ -z ${requested_version} && ${remote_channel_selected} == false ]] || fail "--local-source cannot be combined with --version or --channel"
+  [[ -d ${local_source} && ! -L ${local_source} ]] || fail "--local-source must be a real checkout directory"
+  local_source=$(cd -- "${local_source}" && pwd -P)
+  build_mode=source
+fi
+
+validate_local_source() {
+  local source=$1 entry link
+  for entry in go.mod go.sum cottenrouter.bootstrap.json packaging/cottenrouter.service scripts/install.sh scripts/ensure-swap.sh scripts/uninstall.sh scripts/go-checksums.txt cmd/cottenrouter/main.go; do
+    [[ -f ${source}/${entry} && ! -L ${source}/${entry} ]] || fail "local checkout is missing a regular ${entry}"
+  done
+  for entry in cmd cmd/cottenrouter internal packaging scripts; do
+    [[ -d ${source}/${entry} && ! -L ${source}/${entry} ]] || fail "local checkout is missing a real ${entry} directory"
+    link=$(find "${source}/${entry}" -type l -print -quit) || fail "could not inspect local build inputs: ${entry}"
+    [[ -z ${link} ]] || fail "local build inputs must not contain symlinks: ${entry}"
+  done
+}
+
+stage_local_source() {
+  local source=$1 destination=$2 entry
+  validate_local_source "${source}"
+  mkdir -p -- "${destination}" || fail "could not create local source staging directory"
+  cp -- "${source}/go.mod" "${source}/go.sum" "${source}/cottenrouter.bootstrap.json" "${destination}/" || fail "could not stage local source metadata"
+  for entry in cmd internal packaging scripts; do
+    cp -R -- "${source}/${entry}" "${destination}/${entry}" || fail "could not stage local source directory: ${entry}"
+  done
+  # Catch missing files or links introduced while the checkout was copied.
+  validate_local_source "${destination}"
+  # A Windows checkout may still contain CRLF scripts; normalize only staging.
+  find "${destination}/scripts" -type f -name '*.sh' -exec sed -i 's/\r$//' {} + || fail "could not normalize staged installer scripts"
+}
 
 package_manager=""
 if command -v apt-get >/dev/null 2>&1; then
@@ -89,19 +140,19 @@ install_base_packages() {
   if [[ ${package_manager} == apt ]]; then
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-      ca-certificates coreutils curl git gzip iproute2 libc-bin passwd tar util-linux
+      ca-certificates coreutils curl findutils git gzip iproute2 libc-bin passwd tar util-linux
   elif [[ ${package_manager} == dnf ]]; then
     dnf install -y \
-      ca-certificates coreutils curl git gzip iproute procps-ng shadow-utils tar util-linux
+      ca-certificates coreutils curl findutils git gzip iproute procps-ng shadow-utils tar util-linux
   elif [[ ${package_manager} == yum ]]; then
     yum install -y \
-      ca-certificates coreutils curl git gzip iproute procps-ng shadow-utils tar util-linux
+      ca-certificates coreutils curl findutils git gzip iproute procps-ng shadow-utils tar util-linux
   fi
 }
 
 required_commands=(
-  awk chmod chown cmp cp curl dd df fallocate flock getent git grep groupadd head id install
-  mkdir mktemp mkswap mv rm sed sha256sum sleep ss stat swapoff swapon systemctl tail tar uname useradd
+  awk chgrp chmod chown cmp cp curl dd df fallocate flock getent git grep groupadd groupdel head id install
+  find ln mkdir mktemp mkswap mv readlink rm sed sha256sum sleep sort ss stat swapoff swapon systemctl tail tar uname useradd userdel
 )
 missing_commands=()
 for command_name in "${required_commands[@]}"; do
@@ -169,6 +220,8 @@ firewall_kind=none
 firewall_added_ports=()
 user_created=false
 group_created=false
+prior_firewall_kind=none
+prior_firewall_ports=()
 
 path_present() { [[ -e $1 || -L $1 ]]; }
 
@@ -241,10 +294,49 @@ rollback_firewall() {
   return 0
 }
 
+load_firewall_ownership() {
+  local record value extra
+  prior_firewall_kind=none
+  prior_firewall_ports=()
+  path_present "${FIREWALL_MARKER}" || return 0
+  [[ -f ${FIREWALL_MARKER} && ! -L ${FIREWALL_MARKER} ]] || fail "unsafe firewall ownership marker"
+  while read -r record value extra; do
+    [[ -n ${record} && -z ${extra} ]] || fail "invalid firewall ownership record"
+    case ${record} in
+      kind)
+        [[ ${prior_firewall_kind} == none && ( ${value} == ufw || ${value} == firewalld ) ]] || fail "invalid firewall ownership kind"
+        prior_firewall_kind=${value}
+        ;;
+      port)
+        [[ ${value} =~ ^[0-9]{1,5}/(udp|tcp)$ ]] || fail "unsafe firewall ownership port: ${value}"
+        (( 10#${value%/*} > 0 && 10#${value%/*} <= 65535 )) || fail "invalid firewall ownership port: ${value}"
+        prior_firewall_ports+=("${value}")
+        ;;
+      *) fail "invalid firewall ownership record: ${record}" ;;
+    esac
+  done < "${FIREWALL_MARKER}"
+  [[ ${prior_firewall_kind} != none ]] || fail "missing firewall ownership kind"
+}
+
+save_firewall_ownership() {
+  # An upgrade must retain rules owned by previous successful installations,
+  # even when this run did not need to add a rule.
+  (( ${#firewall_added_ports[@]} > 0 )) || return 0
+  [[ ${prior_firewall_kind} == none || ${prior_firewall_kind} == "${firewall_kind}" ]] || fail "firewall changed from ${prior_firewall_kind} to ${firewall_kind}; preserve the existing ownership marker before migrating firewalls"
+  [[ ! -L ${FIREWALL_MARKER}.new ]] || fail "refusing symlinked firewall staging marker"
+  {
+    printf 'kind %s\n' "${firewall_kind}"
+    printf 'port %s\n' "${prior_firewall_ports[@]}" "${firewall_added_ports[@]}" | awk '!seen[$0]++ && $0 != "port "'
+  } > "${FIREWALL_MARKER}.new"
+  chmod 0600 "${FIREWALL_MARKER}.new"
+  mv -f -- "${FIREWALL_MARKER}.new" "${FIREWALL_MARKER}"
+}
+
 rollback_install() {
   set +e
   printf 'CottenRouter startup failed; restoring the previous installation.\n' >&2
   rollback_firewall
+  restore_file firewall_marker "${FIREWALL_MARKER}"
   systemctl stop cottenrouter >/dev/null 2>&1
   restore_file binary "${BIN_PATH}"
   restore_file unit "${UNIT_PATH}"
@@ -295,7 +387,11 @@ trap finish_install EXIT
 # seconds ago can break every fresh server. Stable installs pin a tagged
 # release; --channel=edge is the explicit opt-in to default-branch code.
 source_ref=""
-if [[ ${channel} == stable ]]; then
+if [[ -n ${local_source} ]]; then
+  source_ref=local
+  printf 'Installing CottenRouter from the current local checkout: %s\n' "${local_source}"
+  stage_local_source "${local_source}" "${work_dir}/source"
+elif [[ ${channel} == stable ]]; then
   if [[ -n ${requested_version} ]]; then
     source_ref=${requested_version}
   else
@@ -324,18 +420,21 @@ fi
 
 # The unit file, bootstrap configuration and helper scripts come from the
 # matching source archive whichever way the binary is obtained.
-fetch "${source_url}" -o "${work_dir}/source.tar.gz"
-mkdir "${work_dir}/source"
-tar -xzf "${work_dir}/source.tar.gz" -C "${work_dir}/source" --strip-components=1
+if [[ -z ${local_source} ]]; then
+  fetch "${source_url}" -o "${work_dir}/source.tar.gz"
+  mkdir "${work_dir}/source"
+  tar -xzf "${work_dir}/source.tar.gz" -C "${work_dir}/source" --strip-components=1
+fi
 
-required_go=$(awk '$1 == "toolchain" { sub(/^go/, "", $2); print $2; exit }' "${work_dir}/source/go.mod")
+required_go=$(awk '$1 == "toolchain" { sub(/\r$/, "", $2); sub(/^go/, "", $2); print $2; exit }' "${work_dir}/source/go.mod")
 if [[ -z ${required_go} ]]; then
-  required_go=$(awk '$1 == "go" { print $2; exit }' "${work_dir}/source/go.mod")
+  required_go=$(awk '$1 == "go" { sub(/\r$/, "", $2); print $2; exit }' "${work_dir}/source/go.mod")
 fi
 [[ ${required_go} =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || fail "go.mod does not declare a safe Go version"
 
 build_from_source() {
 go_binary=""
+export GOTOOLCHAIN=local
 # Reuse the host toolchain when it is at least as new as go.mod requires;
 # an exact patch match would download Go again for 1.25.0 vs 1.25.1.
 host_go_version=$(go env GOVERSION 2>/dev/null | sed "s/^go//" || true)
@@ -369,13 +468,17 @@ else
   fi
   # Level 3: bundled checksums in this repository (works when go.dev is blocked).
   if [[ ! ${expected_sha} =~ ^[a-fA-F0-9]{64}$ ]]; then
-    _checksums_url="https://raw.githubusercontent.com/${REPOSITORY}/${source_ref}/scripts/go-checksums.txt"
-    expected_sha=$(fetch "${_checksums_url}" 2>/dev/null \
-      | awk -v fn="${go_tarball}" '$2 == fn { print $1; exit }' \
-      || true)
+    if [[ -n ${local_source} ]]; then
+      expected_sha=$(awk -v fn="${go_tarball}" '$2 == fn {print $1; exit}' "${work_dir}/source/scripts/go-checksums.txt" 2>/dev/null || true)
+    else
+      _checksums_url="https://raw.githubusercontent.com/${REPOSITORY}/${source_ref}/scripts/go-checksums.txt"
+      expected_sha=$(fetch "${_checksums_url}" 2>/dev/null \
+        | awk -v fn="${go_tarball}" '$2 == fn { print $1; exit }' \
+        || true)
+    fi
   fi
   [[ ${expected_sha} =~ ^[a-fA-F0-9]{64}$ ]] || fail "could not obtain the official Go checksum"
-  fetch "${go_url}" -o "${go_archive}"
+  download_go_archive "${go_tarball}" "${go_archive}"
   printf '%s  %s\n' "${expected_sha}" "${go_archive}" | sha256sum -c -
   mkdir "${work_dir}/go-toolchain"
   tar -xzf "${go_archive}" -C "${work_dir}/go-toolchain"
@@ -394,7 +497,8 @@ export GOPROXY='https://proxy.golang.org|direct'
 # on device" when /tmp is a small tmpfs but work_dir is on the main disk.
 export GOTMPDIR="${work_dir}/gotmp"
 export GOCACHE="${work_dir}/gocache"
-mkdir -p "${GOTMPDIR}" "${GOCACHE}"
+export GOMODCACHE="${work_dir}/gomodcache"
+mkdir -p "${GOTMPDIR}" "${GOCACHE}" "${GOMODCACHE}"
 # A Go toolchain, module cache and build cache need roughly 2 GiB together.
 _build_avail=$(df --output=avail "${work_dir}" 2>/dev/null | tail -1 || echo 0)
 (( _build_avail >= 2097152 )) || fail "not enough disk space for the Go build (need at least 2 GiB free on $(df --output=target "${work_dir}" 2>/dev/null | tail -1))"
@@ -518,6 +622,8 @@ backup_file ensure_swap "${LIB_DIR}/ensure-swap.sh"
 backup_file uninstall_lib "${LIB_DIR}/uninstall.sh"
 backup_file uninstall_bin "${UNINSTALL_BIN_PATH}"
 backup_file config "${CONFIG_FILE}"
+load_firewall_ownership
+backup_file firewall_marker "${FIREWALL_MARKER}"
 backup_file resolved "${RESOLVED_DROPIN}"
 backup_file resolved_marker "${RESOLVED_MARKER}"
 backup_file resolvconf /etc/resolv.conf
@@ -563,6 +669,11 @@ fi
 if [[ ! -d ${CONFIG_DIR} ]]; then
   install -d -o root -g cottenrouter -m 2750 "${CONFIG_DIR}"
 fi
+# Existing root-only configs pass validation as root but cannot be opened by
+# the unprivileged systemd service. Preserve their contents and grant the
+# service group read/traverse access on upgrades too.
+chgrp cottenrouter "${CONFIG_DIR}"
+chmod g+rx "${CONFIG_DIR}"
 if [[ ! -d ${LIB_DIR} ]]; then
   install -d -o root -g root -m 0755 "${LIB_DIR}"
 fi
@@ -596,6 +707,8 @@ fi
 if [[ ! -f ${CONFIG_FILE} ]]; then
   install -o root -g cottenrouter -m 0640 "${work_dir}/source/cottenrouter.bootstrap.json" "${CONFIG_FILE}"
 fi
+chgrp cottenrouter "${CONFIG_FILE}"
+chmod g+r "${CONFIG_FILE}"
 "${work_dir}/cottenrouter" check -config "${CONFIG_FILE}"
 
 [[ ! -L ${BIN_PATH}.new ]] || fail "refusing symlinked binary staging path"
@@ -700,23 +813,8 @@ elif { command -v iptables >/dev/null 2>&1 && iptables -S INPUT 2>/dev/null | gr
   printf 'CottenRouter is installed, but this host filters inbound traffic with raw nftables/iptables rules that it will not rewrite.\n' >&2
   printf 'Allow inbound: %s\n' "${public_ports[*]}" >&2
 fi
-# Record exactly which rules this installer added so the uninstaller removes
-# those and nothing else. Rules that already existed are never touched.
-rm -f -- "${FIREWALL_MARKER}"
-if (( ${#firewall_added_ports[@]} > 0 )); then
-  [[ ! -L ${FIREWALL_MARKER} ]] || fail "refusing symlinked firewall ownership marker"
-  {
-    printf 'kind %s
-' "${firewall_kind}"
-    for added_port in "${firewall_added_ports[@]}"; do
-      printf 'port %s
-' "${added_port}"
-    done
-    true
-  } > "${FIREWALL_MARKER}.new"
-  chmod 0600 "${FIREWALL_MARKER}.new"
-  mv -f -- "${FIREWALL_MARKER}.new" "${FIREWALL_MARKER}"
-fi
+# Record rules added by this run together with earlier installer-owned rules.
+save_firewall_ownership
 committed=true
 
 echo

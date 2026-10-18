@@ -201,6 +201,9 @@ func (m Manager) Install(ctx context.Context, request Request, progress Progress
 	if err != nil {
 		return plan, err
 	}
+	if spec.Kind == ConfigSoar {
+		return plan, m.installSoar(ctx, spec, request, plan, project, progress)
+	}
 	for _, managedPath := range []string{spec.WorkDir, spec.ConfigPath, request.RouterConfig} {
 		if err := rejectSymlinkComponents(managedPath); err != nil {
 			return plan, err
@@ -301,7 +304,7 @@ func (m Manager) Install(ctx context.Context, request Request, progress Progress
 	}
 	installerPath := temp.Name()
 	defer os.Remove(installerPath)
-	if _, err := temp.Write(installerData); err != nil {
+	if _, err := temp.Write(prepareNativeInstaller(spec, installerData)); err != nil {
 		temp.Close()
 		return plan, err
 	}
@@ -844,7 +847,11 @@ func (m Manager) runProtectedCommand(ctx context.Context, spec Spec, command str
 	if realSystemctl == "" {
 		realSystemctl = "/bin/false"
 	}
-	if err := os.WriteFile(filepath.Join(shimDir, "systemctl"), []byte(protectedSystemctlScript(realSystemctl, protectedServices)), 0755); err != nil {
+	systemctlScript := protectedSystemctlScript(realSystemctl, protectedServices)
+	if spec.Kind == ConfigSlipGate {
+		systemctlScript = slipGateResolvedSystemctlScript(systemctlScript, "/etc/systemd/resolved.conf.d/slipgate-no-stub.conf")
+	}
+	if err := os.WriteFile(filepath.Join(shimDir, "systemctl"), []byte(systemctlScript), 0755); err != nil {
 		return err
 	}
 	realService, _ := exec.LookPath("service")
@@ -966,6 +973,17 @@ func reservedRouterPorts(routerConfigPath string, spec Spec) []Listener {
 }
 
 func listenerOwnedBySpec(listener Listener, spec Spec) bool {
+	if spec.Kind == ConfigSoar {
+		// The official and WhiteDNS runtimes have independent units and
+		// executable names. Matching the shared word "soar" would let either
+		// backend claim the other's listener during planning or startup checks.
+		name := strings.TrimSuffix(spec.Service, ".service")
+		if name == "" {
+			return false
+		}
+		process := strings.TrimSpace(listener.Process)
+		return process == name || strings.Contains(process, `("`+name+`",`)
+	}
 	process := strings.ToLower(listener.Process)
 	for _, candidate := range []string{spec.ID, spec.Service, strings.ToLower(spec.Name)} {
 		if candidate != "" && strings.Contains(process, strings.ToLower(candidate)) {
@@ -1247,6 +1265,13 @@ func (m Manager) download(ctx context.Context, url string) ([]byte, error) {
 
 func configure(spec Spec, request Request, plan PortPlan, data []byte) ([]byte, error) {
 	switch spec.Kind {
+	case ConfigSoar:
+		data = setEnv(data, "SOAR_ZONE", request.Domain)
+		data = setEnv(data, "SOAR_LISTEN", fmt.Sprintf("127.0.0.1:%d", request.PrivatePort))
+		data = seedEnv(data, "SOAR_ALLOW_PORTS", "80,443")
+		if err := validateSoarConfig(data); err != nil {
+			return nil, err
+		}
 	case ConfigTOML:
 		initialCottenProfile := spec.ID == "cottendns" && tomlValue(data, "UDP_HOST") != "127.0.0.1"
 		domains := appendCSV([]string{request.Domain}, request.ExtraDomains, request.DoTDomain, request.DoHDomain)
@@ -1514,6 +1539,9 @@ func buildRouterConfig(path string, spec Spec, request Request, plan PortPlan, c
 	}
 	if err := cfg.Validate(); err != nil {
 		return cfg, fmt.Errorf("generated router config: %w", err)
+	}
+	if spec.Kind == ConfigSoar && cfg.QueryTimeoutMS < 2000 {
+		return cfg, fmt.Errorf("Soar requires router query_timeout_ms >= 2000 to support held DNS polls")
 	}
 	return cfg, nil
 }

@@ -92,6 +92,11 @@ func Discover(routerConfig string) ([]ProjectState, error) {
 }
 
 func configSummary(spec Spec, data []byte) (domain, extra string, port int) {
+	if spec.Kind == ConfigSoar {
+		domain = envValue(data, "SOAR_ZONE")
+		_, _ = fmt.Sscanf(envValue(data, "SOAR_LISTEN"), "127.0.0.1:%d", &port)
+		return
+	}
 	if spec.Kind == ConfigEnv {
 		domain = envValue(data, "THEFEED_DOMAIN")
 		extra = envValue(data, "THEFEED_EXTRA_DOMAINS")
@@ -156,29 +161,14 @@ func Credentials(projectID string, reveal bool) ([]Credential, error) {
 		return nil, err
 	}
 	var credentials []Credential
-	addSecretFile := func(label, path string) {
-		item := Credential{Label: label, Path: path, Sensitive: true, Value: "hidden (use --show-secrets)"}
-		if reveal {
-			if data, err := readSmallFile(path); err == nil {
-				item.Value = strings.TrimSpace(string(data))
-			}
-		}
-		if _, err := os.Stat(path); err == nil {
-			credentials = append(credentials, item)
-		}
-	}
 	switch spec.Kind {
+	case ConfigSoar:
+		return soarCredentials(spec, reveal)
 	case ConfigTOML:
-		keyPath := filepath.Join(spec.WorkDir, "encrypt_key.txt")
-		if data, err := readSmallFile(spec.ConfigPath); err == nil {
-			if configured := tomlValue(data, "ENCRYPTION_KEY_FILE"); configured != "" {
-				keyPath = configured
-				if !filepath.IsAbs(keyPath) {
-					keyPath = filepath.Join(filepath.Dir(spec.ConfigPath), keyPath)
-				}
-			}
+		credentials, err = tomlProjectCredentials(spec, reveal)
+		if err != nil {
+			return nil, err
 		}
-		addSecretFile("Shared encryption key", keyPath)
 	case ConfigEnv:
 		if data, err := readSmallFile(spec.ConfigPath); err == nil {
 			value := "hidden (use --show-secrets)"
@@ -248,6 +238,9 @@ func (m Manager) Configure(ctx context.Context, request Request, progress Progre
 	if err != nil {
 		return PortPlan{}, err
 	}
+	if err := requireSoarUnitOwnership(spec); err != nil {
+		return PortPlan{}, err
+	}
 	if spec.Kind == ConfigSlipGate {
 		return PortPlan{}, fmt.Errorf("SlipGate uses multiple native tunnels; use Advanced to edit and re-integrate it")
 	}
@@ -266,6 +259,7 @@ func (m Manager) Configure(ctx context.Context, request Request, progress Progre
 			filtered = append(filtered, listener)
 		}
 	}
+	filtered = append(filtered, reservedRouterPorts(request.RouterConfig, spec)...)
 	plan := PlanPorts(filtered, request)
 	if plan.DNSPort == 0 || (request.EnableDoT && (plan.DoTPublicPort == 0 || plan.DoTPrivatePort == 0)) || (request.EnableDoH && (plan.DoHPublicPort == 0 || plan.DoHPrivatePort == 0)) {
 		return plan, fmt.Errorf("no safe private port is available")
@@ -393,7 +387,10 @@ func restoreManagedServicesExact(states []managedServiceState, runner Runner) {
 			_ = runner.Run(context.Background(), "systemctl", []string{"disable", state.name}, "/", false)
 		}
 		if state.active == "active" || state.active == "activating" {
-			_ = runner.Run(context.Background(), "systemctl", []string{"start", state.name}, "/", false)
+			// Restored configuration can differ from the process still running
+			// after a failed activation. `start` is a no-op for that process and
+			// leaves it on the failed listener; restart applies the snapshot.
+			_ = runner.Run(context.Background(), "systemctl", []string{"restart", state.name}, "/", false)
 		} else {
 			_ = runner.Run(context.Background(), "systemctl", []string{"stop", state.name}, "/", false)
 		}
@@ -409,6 +406,9 @@ func (m Manager) Remove(ctx context.Context, projectID, routerConfig string, pur
 	}
 	spec, err := SpecFor(projectID)
 	if err != nil {
+		return err
+	}
+	if err := requireSoarUnitOwnership(spec); err != nil {
 		return err
 	}
 	if routerConfig == "" {
@@ -548,6 +548,9 @@ func (m Manager) Advanced(ctx context.Context, projectID, routerConfig string) e
 	}
 	spec, err := SpecFor(projectID)
 	if err != nil {
+		return err
+	}
+	if err := requireSoarUnitOwnership(spec); err != nil {
 		return err
 	}
 	if routerConfig == "" {
@@ -780,6 +783,11 @@ func syncProjectRouteInternal(path string, spec Spec, currentSlipGateTLS, previo
 		if err != nil {
 			return err
 		}
+		if spec.Kind == ConfigSoar {
+			if err := validateSoarConfig(backendData); err != nil {
+				return err
+			}
+		}
 		domain, extra, port := configSummary(spec, backendData)
 		if domain == "" || port == 0 {
 			return fmt.Errorf("advanced config must retain a domain and loopback DNS port")
@@ -819,6 +827,13 @@ func syncProjectRouteInternal(path string, spec Spec, currentSlipGateTLS, previo
 			cfg.Routes = append(cfg.Routes, config.Route{Name: spec.ID, Domains: domains, Backend: fmt.Sprintf("127.0.0.1:%d", port), TCPBackend: "disabled"})
 			found = true
 		}
+		if spec.Kind == ConfigSoar {
+			for i := range cfg.Routes {
+				if cfg.Routes[i].Name == spec.ID {
+					cfg.Routes[i].TCPBackend = "disabled"
+				}
+			}
+		}
 		if spec.ID == "cottendns" {
 			for i := range cfg.Routes {
 				if cfg.Routes[i].Name == spec.ID {
@@ -838,6 +853,9 @@ func syncProjectRouteInternal(path string, spec Spec, currentSlipGateTLS, previo
 	}
 	if err := cfg.Validate(); err != nil {
 		return err
+	}
+	if spec.Kind == ConfigSoar && cfg.QueryTimeoutMS < 2000 {
+		return fmt.Errorf("Soar requires router query_timeout_ms >= 2000 to support held DNS polls")
 	}
 	encoded, _ := json.MarshalIndent(cfg, "", "  ")
 	return atomicWrite(path, append(encoded, '\n'), 0640)
@@ -932,6 +950,9 @@ func (m Manager) Service(ctx context.Context, projectID, action string) error {
 	}
 	spec, err := SpecFor(projectID)
 	if err != nil {
+		return err
+	}
+	if err := requireSoarUnitOwnership(spec); err != nil {
 		return err
 	}
 	if action != "start" && action != "stop" && action != "restart" {

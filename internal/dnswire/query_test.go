@@ -41,6 +41,17 @@ func TestQuestionNameRejectsCompression(t *testing.T) {
 	}
 }
 
+func TestParseReplyQuestionRejectsQuery(t *testing.T) {
+	packet := query("tunnel.example", 7)
+	if _, err := ParseReplyQuestion(packet); err == nil {
+		t.Fatal("a query was accepted as a backend response")
+	}
+	packet[2] |= 0x80
+	if _, err := ParseReplyQuestion(packet); err != nil {
+		t.Fatalf("valid response rejected: %v", err)
+	}
+}
+
 func TestRefusedResponse(t *testing.T) {
 	packet := query("unknown.example", 0xbeef)
 	response := RefusedResponse(packet)

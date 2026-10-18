@@ -1,0 +1,2 @@
+# Linux entry points must remain executable from Windows and WSL checkouts.
+*.sh text eol=lf

@@ -102,10 +102,10 @@ func parseFlags(flags *flag.FlagSet, args []string) error {
 
 func projectRequestFlags(name string, args []string) (installer.Request, error) {
 	flags := flag.NewFlagSet(name, flag.ContinueOnError)
-	project := flags.String("project", "", "project ID")
+	project := flags.String("project", "", "project ID: cottendns, masterdnsvpn, stormdns, thefeed, slipgate, soar, soar22 (WhiteDNS older engine v0.2.2)")
 	domain := flags.String("domain", "", "primary delegated DNS domain")
 	port := flags.String("port", "0", "private loopback DNS port")
-	extra := flags.String("extra-domains", "", "thefeed extra domains")
+	extra := flags.String("extra-domains", "", "additional DNS domains (unsupported by single-zone Soar)")
 	chat := flags.String("chat-domains", "", "thefeed chat domains")
 	tcpEnabled := flags.Bool("tcp", false, "enable backend DNS-over-TCP")
 	dotEnabled := flags.Bool("dot", false, "enable CottenDNS DoT")
@@ -219,6 +219,9 @@ func printCatalog(args []string) error {
 		fmt.Printf("%s (%s)\n  repo: %s\n  branch checked: %s\n  commit pinned: %s\n  installer: %s\n  upstream command: %s\n  service: %s\n",
 			project.Name, project.ID, project.Repository, project.DefaultBranch, project.CommitSHA, project.InstallerURL, project.InstallCommand,
 			project.Service)
+		if project.PinnedRef != "" {
+			fmt.Printf("  compatibility release: %s\n", project.PinnedRef)
+		}
 		if project.Routable {
 			fmt.Printf("  router setting: %s -> %s\n\n", project.ListenSetting, project.DefaultBackend)
 		} else {

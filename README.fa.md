@@ -67,6 +67,15 @@
 
 ## 🚀 نصب سریع
 
+برای نصب همین checkout با تغییرات محلی و هر هفت backend، از ریشه مخزن در Linux یا WSL اجرا کنید:
+
+```bash
+sudo bash scripts/install.sh --local-source="$PWD"
+sudo cottenrouter tui
+```
+
+در بخش **Install** با **Space** پروژه‌ها را انتخاب و با **i** نصب مرحله‌ای را شروع کنید. **Tab** فیلد بعدی و **Enter** روی آخرین فیلد شروع نصب است. برای هر پروژه دامنه جدا وارد کنید. thefeed حداقل یک منبع می‌خواهد و SlipGate راهنمای نصب اصلی خود را باز می‌کند.
+
 ### روش پیشنهادی: آخرین نسخه پایدار
 
 ```bash
@@ -80,7 +89,7 @@ sudo cottenrouter tui
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TaJirax/CottenRouter/main/scripts/install.sh \
-  | sudo bash -s -- --version=v1.2.17
+  | sudo bash -s -- --version=v1.2.18
 ```
 
 ### نصب نسخه توسعه
@@ -142,9 +151,33 @@ cotten.example.com  → CottenDNS
 master.example.com  → MasterDnsVPN
 storm.example.com   → StormDNS
 feed.example.com    → thefeed
+soar.example.com    → Soar
+soar22.example.com  → Soar 2.2
 ```
 
 دو سرویس نمی‌توانند دقیقاً یک suffix یکسان داشته باشند. suffixهای تو‌در‌تو مجاز هستند و طولانی‌ترین تطبیق برنده می‌شود.
+
+### نصب Soar
+
+در Project Manager پروژه **Soar** را انتخاب کنید یا دستورهای زیر را اجرا کنید:
+
+```bash
+sudo cottenrouter install --project=soar --domain=soar.example.com
+sudo cottenrouter keys --project=soar
+```
+
+گزینه **Soar** آخرین commit مشخص‌شده از مخزن رسمی Lantern را از سورس build می‌کند؛ در صورت نیاز ابزار Go سازگار را نیز دریافت می‌کند. این کار به دسترسی شبکه برای دریافت Go و dependencyها و فضای دیسک برای compiler و cache نیاز دارد. سرویس `soar-server` به‌صورت پیش‌فرض فقط روی UDP با آدرس `127.0.0.1:5305` گوش می‌دهد.
+
+گزینه جداگانه **Soar 2.2** از بسته standalone setup 0.1.3 پروژه WhiteDNS با **موتور قدیمی‌تر Lantern نسخه v0.2.2** استفاده می‌کند. باینری آماده فقط برای `amd64` با بررسی checksum دریافت می‌شود و سرویس `soar22-server` روی UDP با آدرس `127.0.0.1:5306` اجرا می‌شود:
+
+```bash
+sudo cottenrouter install --project=soar22 --domain=soar22.example.com
+sudo cottenrouter keys --project=soar22
+```
+
+هر دو گزینه می‌توانند هم‌زمان با zone، پورت و کلید جدا اجرا شوند. مدیریت سرویس‌ها با CottenRouter است؛ wizard، مدیر مستقل و پنل وب WhiteDNS اجرا نمی‌شوند. هر گزینه یک zone اختصاصی دارد و extra/chat domain، TCP بک‌اند، DoT و DoH برای آن فعال نیستند.
+
+**کلید عمومی** نمایش‌داده‌شده را در اختیار client قرار دهید؛ seed خصوصی روی سرور باقی می‌ماند و هنگام نصب مجدد حفظ می‌شود. راهنمای تنظیمات و بررسی اتصال در [راهنمای Soar](docs/soar.md) آمده است.
 
 ### ۳. بررسی وضعیت
 
@@ -370,7 +403,7 @@ go vet ./...
 gofmt -w cmd internal
 ```
 
-CI علاوه بر این موارد، جداسازی هم‌زمان پنج backend، packet کامل `16 KiB`، throughput، DoT/DoH، NaiveProxy/StunTLS، format و امنیت container بدون root را بررسی می‌کند.
+CI علاوه بر این موارد، جداسازی هم‌زمان backendها، packet کامل `16 KiB`، throughput، DoT/DoH، NaiveProxy/StunTLS، format و امنیت container بدون root را بررسی می‌کند.
 
 برای گزارش مشکل یا پیشنهاد قابلیت جدید از [Issues](https://github.com/TaJirax/CottenRouter/issues) و برای مشارکت کد از [Pull Requests](https://github.com/TaJirax/CottenRouter/pulls) استفاده کنید.
 
@@ -386,9 +419,11 @@ CottenRouter برای کار در کنار پروژه‌های زیر ساخته
 | **MasterDnsVPN** | DNS tunneling backend | [مخزن](https://github.com/masterking32/MasterDnsVPN) |
 | **StormDNS** | DNS tunneling backend | [مخزن](https://github.com/nullroute1970/StormDNS) |
 | **thefeed** | feed، chat، media و relay روی DNS | [مخزن](https://github.com/sartoopjj/thefeed) |
+| **Soar** | انتقال جریان‌های TCP رمزنگاری‌شده از طریق recursive DNS resolverها | [مخزن](https://github.com/getlantern/soar) |
+| **Soar 2.2 / WhiteDNS** | بسته مستقل موتور Lantern Soar نسخه v0.2.2 | [مخزن](https://github.com/WhiteDNS/Soar-Server) |
 | **SlipGate** | DNS transports، SlipNet، NaiveProxy و StunTLS | [مخزن](https://github.com/anonvector/slipgate) |
 
-رابط ترمینال با پروژه‌های عالی [Bubble Tea](https://github.com/charmbracelet/bubbletea)، [Bubbles](https://github.com/charmbracelet/bubbles) و [Lip Gloss](https://github.com/charmbracelet/lipgloss) از مجموعه [Charm](https://charm.sh/) ساخته شده است. Image امن Docker بر پایه [Distroless](https://github.com/GoogleContainerTools/distroless) است. فهرست کامل dependencyها در [`go.mod`](go.mod) و [`go.sum`](go.sum) موجود است.
+رابط ترمینال با پروژه‌های عالی [Bubble Tea](https://github.com/charmbracelet/bubbletea)، [Bubbles](https://github.com/charmbracelet/bubbles) و [Lip Gloss](https://github.com/charmbracelet/lipgloss) از مجموعه [Charm](https://charm.sh/) ساخته شده است. Image امن Docker بر پایه `scratch` است و فقط فایل اجرایی استاتیک، گواهی‌های CA و تنظیمات را دارد و با کاربر غیر root اجرا می‌شود. فهرست کامل dependencyها در [`go.mod`](go.mod) و [`go.sum`](go.sum) موجود است.
 
 هیچ source یا binary از پروژه‌های upstream در این مخزن vendor نشده است. هر پروژه مالک copyright و license خود است و installer آن فقط با درخواست کاربر از مخزن خودش دریافت می‌شود. جزئیات: [`NOTICE.md`](NOTICE.md).
 

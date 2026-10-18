@@ -449,6 +449,16 @@ func (s *Server) handleTCPQuery(client net.Conn, writeMu *sync.Mutex, packet []b
 		s.stats.Error("dns/tcp", route.name)
 		return
 	}
+	reply, err := dnswire.ParseReplyQuestion(response)
+	if err != nil || binary.BigEndian.Uint16(response[:2]) != binary.BigEndian.Uint16(packet[:2]) ||
+		reply.Name != question.Name || reply.Type != question.Type || reply.Class != question.Class {
+		s.stats.Error("dns/tcp", route.name)
+		errorResponse := dnswire.ErrorResponse(packet, 2)
+		if s.writeTCPMessage(client, writeMu, errorResponse, s.cfg.QueryTimeout()) {
+			s.stats.Out("dns/tcp", route.name, len(errorResponse)+2)
+		}
+		return
+	}
 	if s.writeTCPMessage(client, writeMu, response, s.cfg.QueryTimeout()) {
 		s.stats.Out("dns/tcp", route.name, len(response)+2)
 	} else {

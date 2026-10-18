@@ -1,0 +1,23 @@
+//go:build e2e
+
+package e2e
+
+import (
+	"fmt"
+	"net"
+	"testing"
+)
+
+// Exercise the actual local CottenMax client/server against the real router.
+func TestCottenRouterLocalCottenMax(t *testing.T) {
+	for _, transport := range []string{"udp", "tcp"} {
+		t.Run(transport, func(t *testing.T) {
+			server, client := cottenMaxSettings(t)
+			client += fmt.Sprintf("RESOLVER_TRANSPORT = %q\nTERMINAL_UI = \"plain\"\nSTARTUP_MODE = \"resolvers\"\n", transport)
+			resolver := func(t *testing.T, server *net.UDPAddr) []string {
+				return []string{startRouter(t, server).String()}
+			}
+			runTunnelEchoVia(t, 3, 3, server+routerServerEdits, `["TXT"]`, client, "127.0.0.1", tunnelBins{}, resolver)
+		})
+	}
+}

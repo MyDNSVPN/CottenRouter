@@ -1,0 +1,58 @@
+name: Soar integration
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tests/integration/soar/**'
+      - 'internal/router/**'
+      - 'internal/config/**'
+      - 'internal/dnswire/**'
+      - 'internal/installer/**'
+      - 'internal/catalog/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/soar-integration.yml'
+  pull_request:
+    paths:
+      - 'tests/integration/soar/**'
+      - 'internal/router/**'
+      - 'internal/config/**'
+      - 'internal/dnswire/**'
+      - 'internal/installer/**'
+      - 'internal/catalog/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/soar-integration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  upstream-streams:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: tests/integration/soar/go.mod
+          cache-dependency-path: |
+            go.sum
+            tests/integration/soar/go.sum
+      - name: Encrypted streams through shared DNS routing
+        working-directory: tests/integration/soar
+        run: go test -v -count=1 ./...
+      - name: Concurrent routing race check
+        working-directory: tests/integration/soar
+        run: go test -race -count=1 ./...
+      - name: Native installer source build and CLI startup
+        timeout-minutes: 5
+        env:
+          COTTENROUTER_TEST_SOURCE_BUILD: '1'
+        run: go test -v -count=1 -timeout=5m -run '^TestSoarPinnedSourceBuildLive$' ./internal/installer
+      - name: WhiteDNS older bundle integrity and CLI startup
+        timeout-minutes: 4
+        env:
+          COTTENROUTER_TEST_WHITEDNS_BUNDLE: '1'
+        run: go test -v -count=1 -timeout=4m -run '^TestWhiteDNSSoarBundleLive$' ./internal/installer

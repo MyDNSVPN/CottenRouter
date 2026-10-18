@@ -26,8 +26,10 @@ jobs:
       - name: gofmt
         run: test -z "$(gofmt -l cmd internal)" || { gofmt -l cmd internal; exit 1; }
       - run: go build ./cmd/cottenrouter
-      - run: bash -n scripts/*.sh
+      - run: for script in scripts/*.sh; do bash -n "$script"; done
       - run: bash scripts/install-parse-test.sh
+      - run: bash scripts/install-state-test.sh
+      - run: bash scripts/install-local-test.sh
 
   docker:
     runs-on: ubuntu-latest
