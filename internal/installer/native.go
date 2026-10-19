@@ -25,6 +25,7 @@ const (
 // script instead of trusting a newer mutable URL.
 type installManifest struct {
 	Version       int       `json:"version"`
+	ReleaseTag    string    `json:"release_tag,omitempty"`
 	ProjectID     string    `json:"project_id"`
 	Repository    string    `json:"repository"`
 	DefaultBranch string    `json:"default_branch"`
@@ -74,7 +75,8 @@ func recordUpstreamInstaller(project catalog.Project, installer []byte, complete
 	}
 	digest := sha256.Sum256(installer)
 	manifest := installManifest{
-		Version: manifestVersion, ProjectID: project.ID, Repository: project.Repository,
+		ReleaseTag: project.ReleaseTag,
+		Version:    manifestVersion, ProjectID: project.ID, Repository: project.Repository,
 		DefaultBranch: project.DefaultBranch, CommitSHA: project.CommitSHA,
 		InstallerURL: project.InstallerURL, InstallerFile: installerPath,
 		SHA256: hex.EncodeToString(digest[:]), Completed: completed, RecordedAt: time.Now().UTC(),

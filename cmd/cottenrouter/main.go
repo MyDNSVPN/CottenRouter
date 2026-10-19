@@ -46,6 +46,8 @@ func main() {
 		err = runTUI(os.Args[2:])
 	case "install":
 		err = installProject(os.Args[2:])
+	case "update", "upgrade":
+		err = updateProject(os.Args[2:])
 	case "configure":
 		err = configureProject(os.Args[2:])
 	case "remove", "uninstall":
@@ -317,6 +319,19 @@ func configureProject(args []string) error {
 	return nil
 }
 
+func updateProject(args []string) error {
+	flags := flag.NewFlagSet("update", flag.ContinueOnError)
+	project := flags.String("project", "", "installed backend to update independently of CottenRouter")
+	routerConfig := flags.String("router-config", "/etc/cottenrouter/config.json", "router configuration path")
+	if err := parseFlags(flags, args); err != nil {
+		return err
+	}
+	ctx, stop := operationContext()
+	defer stop()
+	_, err := installer.DefaultManager().Update(ctx, *project, *routerConfig, func(message string) { fmt.Println("  •", message) })
+	return err
+}
+
 func removeProject(args []string) error {
 	flags := flag.NewFlagSet("remove", flag.ContinueOnError)
 	project := flags.String("project", "", "project ID")
@@ -393,5 +408,5 @@ func repairHost(args []string) error {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "Usage: cottenrouter <tui|serve|install|configure|advanced|service|repair|remove|uninstall|keys|check|catalog|slipgate-import|healthz|version> [options]")
+	fmt.Fprintln(os.Stderr, "Usage: cottenrouter <tui|serve|install|update|configure|advanced|service|repair|remove|uninstall|keys|check|catalog|slipgate-import|healthz|version> [options]")
 }

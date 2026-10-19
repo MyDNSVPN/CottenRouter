@@ -201,6 +201,13 @@ func (m Manager) Install(ctx context.Context, request Request, progress Progress
 	if err != nil {
 		return plan, err
 	}
+	if spec.ID == "cottendns" {
+		project.ReleaseTag, err = catalog.DefaultResolver().LatestRelease(ctx, project)
+		if err != nil {
+			return plan, err
+		}
+		progress("Latest WhiteDNS/CottenDNS release: " + project.ReleaseTag)
+	}
 	if spec.Kind == ConfigSoar {
 		return plan, m.installSoar(ctx, spec, request, plan, project, progress)
 	}
@@ -235,6 +242,10 @@ func (m Manager) Install(ctx context.Context, request Request, progress Progress
 	}
 	completed := false
 	routerStopped := false
+	restoreNativeUnit, err := cottenDNSUnitRollback(spec)
+	if err != nil {
+		return plan, err
+	}
 	defer func() {
 		if completed {
 			return
@@ -246,6 +257,10 @@ func (m Manager) Install(ctx context.Context, request Request, progress Progress
 		}
 		_ = atomicWrite(request.RouterConfig, routerPrevious, 0640)
 		if routerStopped {
+			restoreNativeUnit()
+			if spec.ID == "cottendns" {
+				_ = m.Runner.Run(context.Background(), "systemctl", []string{"daemon-reload"}, "/", false)
+			}
 			restoreManagedServicesExact(previousManagedServiceStates, m.Runner)
 			_ = m.Runner.Run(context.Background(), "systemctl", []string{"restart", "cottenrouter"}, "/", false)
 		}
@@ -328,9 +343,19 @@ func (m Manager) Install(ctx context.Context, request Request, progress Progress
 	// Native installers keep their complete setup surface. Command shims guard
 	// common service and firewall commands; post-install listener checks still
 	// fail closed if an upstream release violates CottenRouter's ownership plan.
-	installErr = m.runProtectedCommand(ctx, spec, "bash", []string{installerPath}, spec.WorkDir)
+	nativeArgs := []string{installerPath}
+	if spec.ID == "cottendns" {
+		nativeArgs = append(nativeArgs, "--version", project.ReleaseTag)
+	}
+	installErr = m.runProtectedCommand(ctx, spec, "bash", nativeArgs, spec.WorkDir)
 	if installErr != nil {
 		return plan, fmt.Errorf("upstream %s installer failed: %w", spec.Name, installErr)
+	}
+	if spec.ID == "cottendns" {
+		if err := m.verifyCottenDNSRelease(ctx, spec, project.ReleaseTag); err != nil {
+			return plan, err
+		}
+		progress("Verified installed CottenDNS release " + project.ReleaseTag)
 	}
 	if spec.ID == "thefeed" {
 		if err := requireTheFeedSource(filepath.Dir(spec.ConfigPath)); err != nil {

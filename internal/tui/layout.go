@@ -76,9 +76,9 @@ func (m Model) View() string {
 			body = m.overview(contentWidth)
 		case 1:
 			body = m.installView(contentWidth)
-			foot = "Space select · i easy install · Enter manage · a advanced\ns restart · u detach · x purge · v keys · V secrets · q quit"
+			foot = "Space select · i easy install · U update · Enter manage · a advanced\ns restart · u detach · x purge · v keys · V secrets · q quit"
 			if width < 75 {
-				foot = "Space select · i install · Enter manage · q quit\nv keys · a advanced · s restart · u detach · x purge"
+				foot = "Space select · i install · U update · q quit\nEnter manage · v keys · a advanced · u detach · x purge"
 			}
 		case 2:
 			body = m.portsView(contentWidth)
@@ -189,6 +189,9 @@ func (m Model) installView(width int) string {
 		domain = "choose a delegated domain during installation"
 	}
 	rows = append(rows, "", fitLine(spec.Name+": "+domain, width-4))
+	if version := m.projectStates[spec.ID].Version; version != "" {
+		rows = append(rows, fitLine("Installed release: "+version, width-4))
+	}
 	rows = append(rows, wrapped("Soar: latest Lantern · Soar 2.2: WhiteDNS older Lantern v0.2.2 · amd64", width-4)...)
 	if spec.Kind == installer.ConfigSlipGate {
 		rows = append(rows, "SlipGate opens its native multi-tunnel wizard.")

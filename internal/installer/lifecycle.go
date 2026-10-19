@@ -23,6 +23,7 @@ type ProjectState struct {
 	DoTDomain, DoHDomain              string
 	EnableTCP, EnableDoT, EnableDoH   bool
 	PrivatePort                       int
+	Version                           string
 }
 
 type Credential struct {
@@ -45,7 +46,7 @@ func Discover(routerConfig string) ([]ProjectState, error) {
 			routerTLSListeners = cfg.TLSListeners
 			for _, route := range cfg.Routes {
 				integrated[route.Name] = true
-				tcpEnabled[route.Name] = route.TCPBackend != "" && route.TCPBackend != "disabled"
+				tcpEnabled[route.Name] = route.TCPBackend != "disabled"
 			}
 			for _, listener := range cfg.TLSListeners {
 				for _, route := range listener.Routes {
@@ -64,8 +65,11 @@ func Discover(routerConfig string) ([]ProjectState, error) {
 		state := ProjectState{ID: spec.ID, Name: spec.Name, Service: spec.Service, ConfigPath: spec.ConfigPath}
 		data, err := os.ReadFile(spec.ConfigPath)
 		state.Installed = err == nil
+		if manifest, manifestErr := loadInstallManifestFile(spec.ID, manifestFile); manifestErr == nil {
+			state.Version = manifest.ReleaseTag
+		}
 		state.Integrated = integrated[spec.ID]
-		state.EnableTCP = tcpEnabled[spec.ID]
+		state.EnableTCP = spec.SupportsTCP && tcpEnabled[spec.ID]
 		if spec.ID == "cottendns" {
 			state.DoTDomain, state.DoHDomain = tlsDomains["cottendns-dot"], tlsDomains["cottendns-doh"]
 			state.EnableDoT, state.EnableDoH = state.DoTDomain != "", state.DoHDomain != ""

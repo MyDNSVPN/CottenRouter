@@ -20,6 +20,9 @@ The Project Manager distinguishes selected, installed, and integrated states:
 
 - `space` selects/deselects projects and `i` starts a guided installation for
   every selected project.
+- `U` updates the current installed backend from its current upstream installer
+  while preserving its managed domains, ports and protocol settings. It does
+  not update the CottenRouter executable. `Enter` edits configuration instead.
 - `enter` or `e` edits stable common settings such as all DNS domains, private
   ports, TCP, DoT, DoH, and thefeed chat domains without rerunning an installer.
 - `a` opens the complete native config/editor so project-specific transports,
@@ -66,6 +69,28 @@ Key initialization and the original recorded installer remain intact.
 For SlipGate, the service guard makes its exact known public resolver drop-in
 readable before restarting systemd-resolved, even with a restrictive user umask.
 Keys and unrelated native output retain the caller's umask.
+
+## Backend updates independent of CottenRouter
+
+```bash
+sudo cottenrouter update --project cottendns
+```
+
+Use the same command with another installed project ID to refresh that backend.
+Each operation resolves and downloads the current upstream installer; an update
+to the CottenRouter binary is not needed whenever a backend publishes a release.
+Native installers may still ask their project-specific setup questions. Detached
+projects must be configured into the router before this action.
+
+CottenDNS always resolves `WhiteDNS/CottenDNS/releases/latest` at operation time,
+passes that exact release tag to its fresh installer, and verifies the executable
+that systemd will run reports the same tag. An unavailable release lookup or
+version mismatch is an error, rather than a silent fallback to an old version.
+The verified release tag is recorded and shown in the TUI. The old
+`TaJirax/cottenDNS` fork is not used. Soar 2.2 remains the explicitly pinned older
+compatibility option requested by users.
+An old `CONFIG_VERSION` inside a preserved CottenDNS config describes that
+configuration template; it is not the running executable's release version.
 
 ## Ports and panels
 

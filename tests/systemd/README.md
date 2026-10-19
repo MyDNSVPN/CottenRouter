@@ -66,6 +66,19 @@ the official source server and the actual WhiteDNS v0.2.2 packaged server.
 
 ## All native backends together
 
+For the September-to-current CottenDNS update regression, start with no router
+or backend installation and run:
+
+```bash
+COTTENROUTER_SYSTEMD_TEST=1 bash tests/systemd/cottendns-update-test.sh
+```
+
+This installs a real checksum-verified September 26 server, makes its executable
+newer by mtime than the current release, and runs the backend-only update. On
+2026-10-18 it selected and verified the October 8 WhiteDNS release while keeping
+the key, backend/router config and CottenRouter executable checksums unchanged.
+It leaves the one updated backend installed for inspection and cleanup.
+
 The current checkout can be installed and tested through the actual 80×24 TUI:
 
 ```bash

@@ -356,6 +356,16 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			if m.tab == 1 {
 				return m, m.beginSelectedInstall()
 			}
+		case "U":
+			if m.tab == 1 {
+				if !m.projectStates[m.projects[m.cursor].ID].Installed {
+					m.notice = "Install this project before updating it."
+					return m, nil
+				}
+				m.queue, m.completed = nil, nil
+				m.operation = "update"
+				return m, m.projectCmd("update")
+			}
 		case "u":
 			if m.tab == 1 {
 				state := m.projectStates[m.projects[m.cursor].ID]
@@ -787,7 +797,7 @@ func (m *Model) projectCmd(command string, extra ...string) tea.Cmd {
 		}
 	}
 	args := []string{command, "--project", m.projects[m.cursor].ID}
-	if command == "advanced" {
+	if command == "advanced" || command == "update" {
 		args = append(args, "--router-config", m.routerConfig)
 	}
 	args = append(args, extra...)

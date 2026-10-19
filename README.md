@@ -103,7 +103,7 @@ Install a specific release:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TaJirax/CottenRouter/main/scripts/install.sh \
-  | sudo bash -s -- --version=v1.2.18
+  | sudo bash -s -- --version=v1.2.19
 ```
 
 Install the current development branch:
@@ -309,7 +309,7 @@ Pinning a version is useful for reproducible deployments or returning to a known
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TaJirax/CottenRouter/main/scripts/install.sh \
-  | sudo bash -s -- --version=v1.2.18
+  | sudo bash -s -- --version=v1.2.19
 ```
 
 Available versions are listed on the [Releases page](https://github.com/TaJirax/CottenRouter/releases).
@@ -333,6 +333,16 @@ docker compose up -d
 The configuration is a read-only bind mount, so replacing the container does not replace your local config file.
 
 ### Verify the upgrade
+
+Backend updates are independent of CottenRouter updates:
+
+```bash
+sudo cottenrouter update --project cottendns
+```
+
+In the TUI, select an installed project and press `U`. CottenDNS resolves the
+latest published WhiteDNS release on every operation and checks the installed
+binary version. Domains, keys and routing settings are preserved.
 
 ```bash
 cottenrouter version

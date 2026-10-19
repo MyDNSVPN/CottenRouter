@@ -31,6 +31,7 @@ type Project struct {
 	DefaultBranch  string
 	CommitSHA      string
 	PinnedRef      string
+	ReleaseTag     string
 	Service        string
 	ListenSetting  string
 	DefaultBackend string

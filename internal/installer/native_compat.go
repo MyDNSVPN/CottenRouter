@@ -5,6 +5,14 @@ import "bytes"
 // prepareNativeInstaller repairs known upstream setup defects in the execution
 // copy. The original download stays intact in the pinned uninstall record.
 func prepareNativeInstaller(spec Spec, installer []byte) []byte {
+	if spec.ID == "cottendns" {
+		// Upstream's mtime sort can pick an old binary left in the directory,
+		// even after downloading a newer archive. The caller passes the freshly
+		// resolved release tag, so select that exact executable instead.
+		return bytes.ReplaceAll(installer,
+			[]byte(`EXECUTABLE="$(ls -t ${PREFIX}_v* 2>/dev/null | head -n1 || true)"`),
+			[]byte(`EXECUTABLE="${PREFIX}_${TARGET_VERSION}"`))
+	}
 	if spec.ID != "masterdnsvpn" {
 		return installer
 	}

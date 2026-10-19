@@ -89,7 +89,7 @@ sudo cottenrouter tui
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TaJirax/CottenRouter/main/scripts/install.sh \
-  | sudo bash -s -- --version=v1.2.18
+  | sudo bash -s -- --version=v1.2.19
 ```
 
 ### نصب نسخه توسعه
@@ -315,6 +315,18 @@ curl -fsSL https://raw.githubusercontent.com/TaJirax/CottenRouter/main/scripts/i
 ```
 
 نصاب release جدید را دریافت می‌کند، config را نگه می‌دارد و در صورت خطا rollback می‌کند.
+
+### به‌روزرسانی مستقل backendها
+
+```bash
+sudo cottenrouter update --project cottendns
+```
+
+در TUI پروژه نصب‌شده را انتخاب کنید و `U` را بزنید. هر بار اسکریپت فعلی پروژه
+دریافت می‌شود و برای انتشار نسخه‌های جدید backend نیازی به آپدیت دوباره
+CottenRouter نیست. دامنه‌ها، کلیدها و تنظیمات مسیریابی حفظ می‌شوند.
+برای CottenDNS آخرین انتشار رسمی `WhiteDNS/CottenDNS` دریافت و نسخه باینری
+نصب‌شده بررسی می‌شود؛ خطای دریافت نسخه به نصب بی‌صدای نسخه قدیمی منجر نمی‌شود.
 
 ### بررسی نسخه
 
