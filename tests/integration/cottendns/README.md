@@ -25,3 +25,20 @@ The 2026-10-18 release validation used local CottenDNS HEAD
 changes. These local files are distinct from the published CottenDNS release
 selected by the normal native installer. Publishing CottenRouter does not
 publish or change the separate CottenDNS repository.
+
+## Cold DNS response delivery
+
+The published CottenDNS client could fill its local DNS cache without replying
+to the first request. This requires a client fix; a router/server upgrade alone
+does not repair installed clients. See the [investigation and focused patch](../../../docs/cottendns-first-response.md).
+
+After applying that fix to the local CottenDNS source, run:
+
+```bash
+COTTENDNS_DIR=/path/to/cottenDNS bash tests/integration/cottendns/verify-dns-delivery.sh
+```
+
+This gate runs the delivery regression repeatedly under the race detector,
+then tests real binaries directly and through CottenRouter using UDP and TCP.
+Eight cold queries and eight cache hits must answer with correct transaction
+IDs without retransmission, using only one controlled upstream lookup.

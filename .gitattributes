@@ -1,2 +1,4 @@
 # Linux entry points must remain executable from Windows and WSL checkouts.
 *.sh text eol=lf
+# Unified patches intentionally contain space-prefixed context and tab indents.
+tests/integration/cottendns/patches/*.patch text eol=lf -whitespace

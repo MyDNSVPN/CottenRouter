@@ -1,0 +1,92 @@
+//go:build e2e
+
+package e2e
+
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"net"
+	"sync/atomic"
+	"testing"
+	"time"
+)
+
+// Use real binaries and one controlled recursive upstream. Every local client
+// sends exactly one datagram; retransmitting would hide the reported defect.
+func TestCottenRouterColdDNSDelivery(t *testing.T) {
+	for _, path := range []string{"direct", "router"} {
+		for _, transport := range []string{"udp", "tcp"} {
+			t.Run(path+"/"+transport, func(t *testing.T) {
+				upstream, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+				if err != nil {
+					t.Fatal(err)
+				}
+				var requests atomic.Int32
+				done := make(chan struct{})
+				go func() {
+					defer close(done)
+					buffer := make([]byte, 4096)
+					for {
+						n, peer, err := upstream.ReadFromUDP(buffer)
+						if err != nil {
+							return
+						}
+						requests.Add(1)
+						response := append([]byte(nil), buffer[:n]...)
+						binary.BigEndian.PutUint16(response[2:4], 0x8180)
+						binary.BigEndian.PutUint16(response[6:8], 1)
+						response = append(response, 0xc0, 0x0c, 0, 1, 0, 1, 0, 0, 0, 1, 0, 4, 198, 51, 100, 42)
+						time.Sleep(100 * time.Millisecond)
+						upstream.WriteToUDP(response, peer)
+					}
+				}()
+				t.Cleanup(func() { upstream.Close(); <-done })
+				localPort := freeUDPPort(t)
+				serverExtra := fmt.Sprintf("%s\nDNS_UPSTREAM_SERVERS = [%q]\nDNS_UPSTREAM_TIMEOUT = 2.0\n", routerServerEdits, upstream.LocalAddr().String())
+				clientExtra := fmt.Sprintf("STARTUP_MODE = \"resolvers\"\nTERMINAL_UI = \"plain\"\nRESOLVER_TRANSPORT = %q\nLOCAL_DNS_ENABLED = true\nLOCAL_DNS_IP = \"127.0.0.1\"\nLOCAL_DNS_PORT = %d\nLOCAL_DNS_CACHE_PERSIST_TO_FILE = false\n", transport, localPort)
+				resolvers := func(t *testing.T, server *net.UDPAddr) []string {
+					if path == "router" {
+						server = startRouter(t, server)
+					}
+					return []string{server.String()}
+				}
+				runTunnelEchoVia(t, 3, 3, serverExtra, `["TXT"]`, clientExtra, "127.0.0.1", tunnelBins{}, resolvers)
+				endpoint := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: localPort}
+				const clients = 8
+				for batch := 0; batch < 2; batch++ {
+					connections := make([]*net.UDPConn, clients)
+					for i := 0; i < clients; i++ {
+						conn, err := net.DialUDP("udp4", nil, endpoint)
+						if err != nil {
+							t.Fatal(err)
+						}
+						t.Cleanup(func() { conn.Close() })
+						connections[i] = conn
+						query := []byte{0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 4, 'c', 'o', 'l', 'd', 4, 't', 'e', 's', 't', 0, 0, 1, 0, 1}
+						binary.BigEndian.PutUint16(query[:2], uint16(100+batch*clients+i))
+						conn.SetDeadline(time.Now().Add(5 * time.Second))
+						if _, err := conn.Write(query); err != nil {
+							t.Fatal(err)
+						}
+					}
+					for i, conn := range connections {
+						buffer := make([]byte, 4096)
+						n, err := conn.Read(buffer)
+						if err != nil {
+							t.Fatalf("batch %d client %d: first request received no response: %v", batch, i, err)
+						}
+						if n < 12 || binary.BigEndian.Uint16(buffer[:2]) != uint16(100+batch*clients+i) || buffer[3]&15 != 0 || !bytes.Equal(buffer[n-4:n], []byte{198, 51, 100, 42}) {
+							t.Fatalf("wrong DNS response: %x", buffer[:n])
+						}
+						conn.Close()
+					}
+				}
+				if requests.Load() != 1 {
+					t.Fatalf("made %d upstream lookups, want one shared cold lookup", requests.Load())
+				}
+				t.Log("Eight cold requests and eight cache hits returned correct IDs without retransmission; one upstream lookup.")
+			})
+		}
+	}
+}
