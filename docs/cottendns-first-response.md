@@ -17,7 +17,9 @@ outside locks. Pending state expires with the configured response-fragment
 timeout, sends SERVFAIL on timeout/capacity exhaustion, and is cleared on
 runtime reset. Limits are 4096 pending callers total and 64 per question.
 
-The fix is applied to the separate local `cottenDNS` checkout. The focused
+The fix is applied to the separate local `cottenDNS` checkout, both desktop and
+Android CottenDNS cores, desktop MasterDNS/StormDNS, and Android PhantomDNS.
+Max now carries local DNS through the same server resolver/cache. The focused
 [patch](../tests/integration/cottendns/patches/deliver-first-dns-response.patch)
 contains only this fix and its unit tests; unrelated local CottenMax work is
 excluded. To apply it to a compatible CottenDNS source checkout:
@@ -42,8 +44,9 @@ Validation:
 - Real client/server binaries passed direct and CottenRouter paths over both
   UDP and TCP. Each path answered eight cold queries and eight cache hits with
   correct IDs, without retransmitting; a controlled delayed upstream received
-  exactly one lookup per path. These binary cases used the legacy tunnel with
-  AES-128-GCM; this does not assert CottenMax local-DNS feature support.
+  exactly one lookup per path. The final binary suite covers both normal
+  CottenDNS and Max: eight paths total. Normal uses AES-128-GCM; Max uses its
+  authenticated stream transport and the existing shared CottenDNS credential.
 - Focused tests also cover simultaneous cache publication, reused query
   buffers, response fragmentation, duplicate replies, callback reentry,
   timeout/reset cleanup, capacity limits and operation without a local cache.
@@ -53,3 +56,6 @@ Reproduce the fixed behavior without installing services:
 ```bash
 COTTENDNS_DIR=/path/to/cottenDNS bash tests/integration/cottendns/verify-dns-delivery.sh
 ```
+
+See the [Max integration and performance report](cottenmax-performance-2026-10-19.md)
+for the shared-profile client changes, Soar version, measurements and limits.

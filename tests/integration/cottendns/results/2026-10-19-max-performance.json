@@ -1,0 +1,1236 @@
+{
+  "date": "2026-10-19",
+  "environment": "Ubuntu 24.04, WSL2, Go 1.25.0, GOMAXPROCS=4; three serial complete repeats per stage; no competing builds/tests",
+  "upstream_soar": "v0.2.3",
+  "upstream_commit": "a8af533d82284f5e6ab13b706552596c108bacf2",
+  "source_files_sha256_lf": {
+    "internal/cottenmax/client.go": "b5a767037481febc3758fe20b5adf2d6a28e7fc946202b57c70313869f14653f",
+    "internal/cottenmax/dns.go": "a3b710efd509972831c7d233de5650a6d9a13e5f46c454048e3e13f7675948fc",
+    "internal/client/cottenmax.go": "03daab570207f0c46d80e155526f18c8116d0ed73fd383b59dbd027ceef192eb",
+    "test/e2e/cottenmax_comparison_test.go": "a967a4498f2a2eb010262af2693f57dc285b9660489bc10938894d817bb17edd",
+    "go.mod": "921b37dd519be0e5869d400d7a6b3beefe8ef3a01fc77447048bd4f7cc4b2c50",
+    "go.sum": "e951cc7e6252d9311f843082d1d5c0c0970f05a32f5d65053dfa0c81dd309675"
+  },
+  "stages": {
+    "before": {
+      "measurements": [
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "0s",
+          "cold_ms": 618.0,
+          "warm_ms": 617.0,
+          "queries": 999
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "0s",
+          "cold_ms": 8.0,
+          "warm_ms": 13.0,
+          "queries": 856
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "0s",
+          "cold_ms": 2.0,
+          "warm_ms": 11.0,
+          "queries": 890
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 988.0,
+          "warm_ms": 303.0,
+          "queries": 949
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 225.0,
+          "warm_ms": 254.0,
+          "queries": 852
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 188.0,
+          "warm_ms": 7671.0,
+          "queries": 5253
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "150ms",
+          "cold_ms": 2230.0,
+          "warm_ms": 561.0,
+          "queries": 947
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "150ms",
+          "cold_ms": 1070.0,
+          "warm_ms": 1062.0,
+          "queries": 853
+        },
+        {
+          "scenario": "loss",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 1626.0,
+          "warm_ms": 3457.0,
+          "queries": 1057
+        },
+        {
+          "scenario": "loss",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 362.0,
+          "warm_ms": 4301.0,
+          "queries": 3568
+        },
+        {
+          "scenario": "short-names",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 255.0,
+          "warm_ms": 568.0,
+          "queries": 3634
+        },
+        {
+          "scenario": "short-names",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 281.0,
+          "warm_ms": 7999.0,
+          "queries": 5303
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 225.0,
+          "warm_ms": 3464.0,
+          "queries": 3641
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 157.0,
+          "warm_ms": 7906.0,
+          "queries": 5259
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "0s",
+          "cold_ms": 412.0,
+          "warm_ms": 593.0,
+          "queries": 994
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "0s",
+          "cold_ms": 7.0,
+          "warm_ms": 10.0,
+          "queries": 858
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "0s",
+          "cold_ms": 2.0,
+          "warm_ms": 10.0,
+          "queries": 899
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 725.0,
+          "warm_ms": 292.0,
+          "queries": 948
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 193.0,
+          "warm_ms": 221.0,
+          "queries": 852
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 188.0,
+          "warm_ms": 7466.0,
+          "queries": 5219
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "150ms",
+          "cold_ms": 1932.0,
+          "warm_ms": 860.0,
+          "queries": 939
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "150ms",
+          "cold_ms": 916.0,
+          "warm_ms": 1365.0,
+          "queries": 864
+        },
+        {
+          "scenario": "loss",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 1481.0,
+          "warm_ms": 3382.0,
+          "queries": 1067
+        },
+        {
+          "scenario": "loss",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 394.0,
+          "warm_ms": 3423.0,
+          "queries": 3361
+        },
+        {
+          "scenario": "loss",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 158.0,
+          "warm_ms": 13091.0,
+          "queries": 6208
+        },
+        {
+          "scenario": "short-names",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 257.0,
+          "warm_ms": 569.0,
+          "queries": 3627
+        },
+        {
+          "scenario": "short-names",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 251.0,
+          "warm_ms": 7691.0,
+          "queries": 5312
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 225.0,
+          "warm_ms": 3501.0,
+          "queries": 3637
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 157.0,
+          "warm_ms": 7820.0,
+          "queries": 5422
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "0s",
+          "cold_ms": 616.0,
+          "warm_ms": 393.0,
+          "queries": 947
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "0s",
+          "cold_ms": 8.0,
+          "warm_ms": 10.0,
+          "queries": 850
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "0s",
+          "cold_ms": 2.0,
+          "warm_ms": 11.0,
+          "queries": 899
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 726.0,
+          "warm_ms": 229.0,
+          "queries": 951
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 225.0,
+          "warm_ms": 253.0,
+          "queries": 849
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 189.0,
+          "warm_ms": 7421.0,
+          "queries": 5185
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "150ms",
+          "cold_ms": 2132.0,
+          "warm_ms": 1155.0,
+          "queries": 950
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "150ms",
+          "cold_ms": 1067.0,
+          "warm_ms": 1363.0,
+          "queries": 879
+        },
+        {
+          "scenario": "loss",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 1350.0,
+          "warm_ms": 3323.0,
+          "queries": 1054
+        },
+        {
+          "scenario": "loss",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 927.0,
+          "warm_ms": 3623.0,
+          "queries": 3336
+        },
+        {
+          "scenario": "loss",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 359.0,
+          "warm_ms": 14734.0,
+          "queries": 6144
+        },
+        {
+          "scenario": "short-names",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 258.0,
+          "warm_ms": 577.0,
+          "queries": 3629
+        },
+        {
+          "scenario": "short-names",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 221.0,
+          "warm_ms": 7205.0,
+          "queries": 5254
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 226.0,
+          "warm_ms": 3614.0,
+          "queries": 3724
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 158.0,
+          "warm_ms": 8039.999999999999,
+          "queries": 5142
+        }
+      ],
+      "subtests": [
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "loss",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "short-names",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "rate-limited",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "short-names",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "rate-limited",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "short-names",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "rate-limited",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "soar"
+        }
+      ],
+      "transcript_sha256": "865ed4be030c61dee24a16d3f9d0a8f0d04fdcc368551c5ebc0829f99ae6d63d"
+    },
+    "final": {
+      "measurements": [
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "0s",
+          "cold_ms": 615.0,
+          "warm_ms": 214.0,
+          "queries": 939
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "0s",
+          "cold_ms": 7.0,
+          "warm_ms": 12.0,
+          "queries": 845
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "0s",
+          "cold_ms": 2.0,
+          "warm_ms": 12.0,
+          "queries": 893
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 988.0,
+          "warm_ms": 493.0,
+          "queries": 953
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 162.0,
+          "warm_ms": 190.0,
+          "queries": 855
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 187.0,
+          "warm_ms": 7648.0,
+          "queries": 5097
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "150ms",
+          "cold_ms": 1982.0,
+          "warm_ms": 866.0,
+          "queries": 948
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "150ms",
+          "cold_ms": 765.0,
+          "warm_ms": 911.0,
+          "queries": 846
+        },
+        {
+          "scenario": "loss",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 1380.0,
+          "warm_ms": 3541.0,
+          "queries": 1074
+        },
+        {
+          "scenario": "loss",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 894.0,
+          "warm_ms": 4327.0,
+          "queries": 3386
+        },
+        {
+          "scenario": "short-names",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 424.0,
+          "warm_ms": 506.0,
+          "queries": 3630
+        },
+        {
+          "scenario": "short-names",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 220.0,
+          "warm_ms": 7292.0,
+          "queries": 5228
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 162.0,
+          "warm_ms": 3581.0,
+          "queries": 3697
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 157.0,
+          "warm_ms": 7844.0,
+          "queries": 5196
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "0s",
+          "cold_ms": 615.0,
+          "warm_ms": 221.0,
+          "queries": 986
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "0s",
+          "cold_ms": 7.0,
+          "warm_ms": 13.0,
+          "queries": 852
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "0s",
+          "cold_ms": 2.0,
+          "warm_ms": 13.0,
+          "queries": 902
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 553.0,
+          "warm_ms": 554.0,
+          "queries": 946
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 162.0,
+          "warm_ms": 159.0,
+          "queries": 847
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 188.0,
+          "warm_ms": 7246.0,
+          "queries": 5102
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "150ms",
+          "cold_ms": 2133.0,
+          "warm_ms": 1318.0,
+          "queries": 939
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "150ms",
+          "cold_ms": 761.0,
+          "warm_ms": 1060.0,
+          "queries": 858
+        },
+        {
+          "scenario": "loss",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 1424.0,
+          "warm_ms": 4331.0,
+          "queries": 1076
+        },
+        {
+          "scenario": "loss",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 364.0,
+          "warm_ms": 3356.0,
+          "queries": 3356
+        },
+        {
+          "scenario": "loss",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 890.0,
+          "warm_ms": 17168.0,
+          "queries": 6111
+        },
+        {
+          "scenario": "short-names",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 426.0,
+          "warm_ms": 509.0,
+          "queries": 3625
+        },
+        {
+          "scenario": "short-names",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 253.0,
+          "warm_ms": 7501.0,
+          "queries": 5145
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 163.0,
+          "warm_ms": 3335.0,
+          "queries": 3624
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 188.0,
+          "warm_ms": 7653.0,
+          "queries": 5137
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "0s",
+          "cold_ms": 411.0,
+          "warm_ms": 753.0,
+          "queries": 1063
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "0s",
+          "cold_ms": 7.0,
+          "warm_ms": 11.0,
+          "queries": 857
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "0s",
+          "cold_ms": 3.0,
+          "warm_ms": 15.0,
+          "queries": 889
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 725.0,
+          "warm_ms": 269.0,
+          "queries": 944
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 162.0,
+          "warm_ms": 191.0,
+          "queries": 859
+        },
+        {
+          "scenario": "healthy",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 189.0,
+          "warm_ms": 7010.0,
+          "queries": 5125
+        },
+        {
+          "scenario": "healthy",
+          "mode": "legacy",
+          "rtt": "150ms",
+          "cold_ms": 1878.0,
+          "warm_ms": 1111.0,
+          "queries": 951
+        },
+        {
+          "scenario": "healthy",
+          "mode": "cottenmax",
+          "rtt": "150ms",
+          "cold_ms": 763.0,
+          "warm_ms": 1063.0,
+          "queries": 851
+        },
+        {
+          "scenario": "loss",
+          "mode": "legacy",
+          "rtt": "30ms",
+          "cold_ms": 1484.0,
+          "warm_ms": 2854.0,
+          "queries": 1058
+        },
+        {
+          "scenario": "loss",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 364.0,
+          "warm_ms": 3768.0,
+          "queries": 3580
+        },
+        {
+          "scenario": "short-names",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 427.0,
+          "warm_ms": 536.0,
+          "queries": 3624
+        },
+        {
+          "scenario": "short-names",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 283.0,
+          "warm_ms": 7010.0,
+          "queries": 5207
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "cottenmax",
+          "rtt": "30ms",
+          "cold_ms": 163.0,
+          "warm_ms": 3422.0,
+          "queries": 3637
+        },
+        {
+          "scenario": "rate-limited",
+          "mode": "soar",
+          "rtt": "30ms",
+          "cold_ms": 189.0,
+          "warm_ms": 6975.0,
+          "queries": 5148
+        }
+      ],
+      "subtests": [
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "loss",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "short-names",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "rate-limited",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "short-names",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "rate-limited",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=0s",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=30ms",
+          "mode": "soar"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rtt=150ms",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "loss",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "loss",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "short-names",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "short-names",
+          "mode": "soar"
+        },
+        {
+          "status": "FAIL",
+          "scenario": "rate-limited",
+          "mode": "legacy"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "cottenmax"
+        },
+        {
+          "status": "PASS",
+          "scenario": "rate-limited",
+          "mode": "soar"
+        }
+      ],
+      "transcript_sha256": "c2cbae37e28dfd5a88301104a4492c8ed09654c57cd929e85891c36e2d30bd44"
+    }
+  }
+}

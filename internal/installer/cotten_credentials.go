@@ -29,6 +29,12 @@ func tomlProjectCredentials(spec Spec, reveal bool) ([]Credential, error) {
 		credentials = append(credentials, item)
 	}
 	if spec.ID == "cottendns" && strings.EqualFold(tomlValue(data, "TUNNEL_MODE"), "cottenmax") {
+		// Current Max shares CottenDNS's credential. Older experimental servers
+		// can still expose a separately configured or existing public identity.
+		_, defaultPublicErr := os.Stat(filepath.Join(filepath.Dir(spec.ConfigPath), "cottenmax_key.txt.pub"))
+		if tomlValue(data, "COTTENMAX_KEY_FILE") == "" && os.IsNotExist(defaultPublicErr) {
+			return credentials, nil
+		}
 		public, err := cottenMaxPublicCredential(spec, data)
 		if err != nil {
 			return nil, err

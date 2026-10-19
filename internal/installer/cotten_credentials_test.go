@@ -107,8 +107,18 @@ func TestCottenMaxCredentialsNeverReadOrDeriveFromSigningSeed(t *testing.T) {
 	if err := os.Remove(keyPath + ".pub"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tomlProjectCredentials(spec, true); err == nil || !strings.Contains(err.Error(), "start CottenDNS") {
-		t.Fatalf("missing public file did not produce an actionable error: %v", err)
+	if credentials, err := tomlProjectCredentials(spec, true); err != nil || len(credentials) != 0 {
+		t.Fatalf("shared-credential Max unexpectedly requires a separate public key: %v", err)
+	}
+}
+
+func TestCottenMaxSharedCredentialNeedsNoSeparateIdentity(t *testing.T) {
+	spec := cottenCredentialSpec(t)
+	writeCottenCredentialFile(t, spec.ConfigPath, "TUNNEL_MODE = \"cottenmax\"\n")
+	writeCottenCredentialFile(t, filepath.Join(spec.WorkDir, "encrypt_key.txt"), "same-cotten-key\n")
+	credentials, err := tomlProjectCredentials(spec, false)
+	if err != nil || len(credentials) != 1 || !credentials[0].Sensitive || credentials[0].Value != "hidden (use --show-secrets)" {
+		t.Fatalf("shared credential was not retained/redacted: %+v %v", credentials, err)
 	}
 }
 

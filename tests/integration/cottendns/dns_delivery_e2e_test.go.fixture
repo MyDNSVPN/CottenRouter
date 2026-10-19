@@ -15,6 +15,14 @@ import (
 // Use real binaries and one controlled recursive upstream. Every local client
 // sends exactly one datagram; retransmitting would hide the reported defect.
 func TestCottenRouterColdDNSDelivery(t *testing.T) {
+	runColdDNSDelivery(t, "legacy")
+}
+
+func TestCottenRouterCottenMaxColdDNSDelivery(t *testing.T) {
+	runColdDNSDelivery(t, "cottenmax")
+}
+
+func runColdDNSDelivery(t *testing.T, mode string) {
 	for _, path := range []string{"direct", "router"} {
 		for _, transport := range []string{"udp", "tcp"} {
 			t.Run(path+"/"+transport, func(t *testing.T) {
@@ -45,6 +53,7 @@ func TestCottenRouterColdDNSDelivery(t *testing.T) {
 				localPort := freeUDPPort(t)
 				serverExtra := fmt.Sprintf("%s\nDNS_UPSTREAM_SERVERS = [%q]\nDNS_UPSTREAM_TIMEOUT = 2.0\n", routerServerEdits, upstream.LocalAddr().String())
 				clientExtra := fmt.Sprintf("STARTUP_MODE = \"resolvers\"\nTERMINAL_UI = \"plain\"\nRESOLVER_TRANSPORT = %q\nLOCAL_DNS_ENABLED = true\nLOCAL_DNS_IP = \"127.0.0.1\"\nLOCAL_DNS_PORT = %d\nLOCAL_DNS_CACHE_PERSIST_TO_FILE = false\n", transport, localPort)
+				clientExtra += fmt.Sprintf("TUNNEL_MODE = %q\n", mode)
 				resolvers := func(t *testing.T, server *net.UDPAddr) []string {
 					if path == "router" {
 						server = startRouter(t, server)

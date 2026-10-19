@@ -19,4 +19,4 @@ sed -i 's/port := freeUDPPortForHost(t, "127.0.0.1")/port := freeDNSPortForHost(
 export COTTEN_ROUTER_DIR="$router_dir"
 cd "$work"
 go test -race -count=20 -run '^TestDNS(CacheMiss|Delivery)' ./internal/client
-go test -v -count=1 -tags=e2e -timeout=6m -run '^TestCottenRouterColdDNSDelivery$' ./test/e2e
+go test -v -count=1 -tags=e2e -timeout=6m -run '^TestCottenRouter(ColdDNSDelivery|CottenMaxColdDNSDelivery)$' ./test/e2e

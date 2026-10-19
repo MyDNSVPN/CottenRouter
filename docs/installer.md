@@ -37,13 +37,16 @@ All seven projects appear in the same list. The guided queue shows its current
 step and keeps invalid entries open for correction. Tab/Shift+Tab and arrow keys
 move between fields; Enter on the last field submits. Ctrl+O toggles DoH,
 leaving Ctrl+H available for backspace. Key results stay visible until dismissed.
-For a CottenDNS development build using `TUNNEL_MODE=cottenmax`, key results
-also show the validated client public key from `COTTENMAX_KEY_FILE.pub`.
-The signing seed stays private; the existing shared key keeps its normal
-`--show-secrets` requirement.
+Current local CottenDNS development builds share the existing configuration
+and credential between normal and Max mode; no separate Max key is required.
+Older experimental identities can still show the validated public key from
+`COTTENMAX_KEY_FILE.pub`. Signing seeds stay private, and the existing shared
+key keeps its normal `--show-secrets` requirement.
 CottenMax stays inside the CottenDNS project and shares its service and route.
 A supporting server with CottenMax enabled also accepts normal CottenDNS
 clients; users select normal/CottenMax mode in their clients.
+See the [integration and measured performance](cottenmax-performance-2026-10-19.md)
+for supported settings and the distinction between local builds and releases.
 Thefeed's native wizard requires at least one channel/account source. SlipGate
 uses its full native wizard. The layout adapts to ordinary 80×24 terminals.
 
