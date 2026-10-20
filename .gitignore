@@ -26,3 +26,26 @@ coverage.txt
 *.orig
 *~
 .DS_Store
+
+# Local beta verification, README additions and scratch output
+# Existing tracked tests/READMEs stay in Git; local edits are excluded from the beta commit.
+**/*_test.go
+**/test/
+**/tests/
+**/testdata/
+**/src/androidTest/
+**/[Rr][Ee][Aa][Dd][Mm][Ee]*
+**/.cache/
+**/.bench/
+**/__pycache__/
+**/*.test
+**/*.test.exe
+**/*.prof
+**/*.trace
+**/coverage/
+**/*-sources.jar
+/docs/cottenmax-beta-apps-and-installation-2026-10-20.md
+/docs/cottenmax-encryption-and-switching-2026-10-20.md
+/docs/cottenmax-options-and-experiments-2026-10-19.md
+/docs/dns-countermeasure-audit-2026-10-19.md
+/tests/integration/cottendns/results/2026-10-19-max-options.json

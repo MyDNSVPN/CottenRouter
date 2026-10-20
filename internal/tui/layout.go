@@ -149,6 +149,11 @@ func (m Model) installView(width int) string {
 	}
 	rows := []string{title.Render(fmt.Sprintf("PROJECT MANAGER · %d selected", count)), "    PROJECT          STATE        PORT"}
 	maxRows := max(1, m.bodyHeight()-10)
+	if m.projects[m.cursor].ID == "cottendns" && width < 71 {
+		// Reserve room for the integrated Max beta requirements on narrow
+		// terminals. The project list remains reachable with the arrow keys.
+		maxRows = max(1, m.bodyHeight()-14)
+	}
 	start := max(0, m.cursor-maxRows+1)
 	if len(m.projects) <= maxRows {
 		start = 0
@@ -189,6 +194,9 @@ func (m Model) installView(width int) string {
 		domain = "choose a delegated domain during installation"
 	}
 	rows = append(rows, "", fitLine(spec.Name+": "+domain, width-4))
+	if spec.ID == "cottendns" {
+		rows = append(rows, cottenMaxGuidance(width-4)...)
+	}
 	if version := m.projectStates[spec.ID].Version; version != "" {
 		rows = append(rows, fitLine("Installed release: "+version, width-4))
 	}
@@ -237,6 +245,9 @@ func (m Model) formView(width int) string {
 		rows = append(rows, wrapped(origin, width-4)...)
 		rows = append(rows, "One delegated zone · UDP-only · share its public key.")
 	}
+	if spec.ID == "cottendns" {
+		rows = append(rows, cottenMaxGuidance(width-4)...)
+	}
 	if spec.ID == "thefeed" {
 		rows = append(rows, "Next: native setup asks for sources and a passphrase.", "Add at least one public channel or X account.")
 	}
@@ -267,8 +278,32 @@ func (m Model) portsView(width int) string {
 }
 
 func (m Model) guideView(width int) string {
-	rows := []string{title.Render("EASY INSTALL"), "", "1. Open Install with Tab or →.", "2. Space selects projects; i starts the guided queue.", "3. Enter a unique delegated domain for each project.", "4. Tab moves fields; Enter on the last field installs.", "5. Native setup asks for project-specific options.", "", "thefeed needs a source; SlipGate uses its native wizard.", "Soar and Soar 2.2 can run together with different zones.", "Soar 2.2: WhiteDNS, older Lantern engine v0.2.2, amd64.", "", "DNS uses suffix routing. DoT/DoH use TLS SNI.", "Existing panels keep their ports. Conflicts are reported."}
+	rows := []string{title.Render("EASY INSTALL"), "", "1. Install tab: Space selects; i starts the guided queue.", "2. Enter a unique delegated domain for each project.", "3. Tab moves fields; Enter on the last field installs.", "4. Native setup asks for project-specific options.", ""}
+	rows = append(rows, cottenMaxGuidance(width-4)...)
+	for _, line := range []string{
+		"Latest published builds may not include Max yet.",
+		"thefeed needs a source; SlipGate uses its native wizard.",
+		"Soar and Soar 2.2 need different zones.",
+		"Soar 2.2: WhiteDNS, older Lantern v0.2.2, amd64.",
+		"DNS: suffix routing. DoT/DoH: TLS SNI.",
+		"Existing panels keep ports; conflicts are reported.",
+	} {
+		rows = append(rows, wrapped(line, width-4)...)
+	}
 	return frame(rows, width, m.bodyHeight())
+}
+
+// Max is an internal CottenDNS mode, never a separately installable project.
+// Avoid promising that an older published server supports the beta protocol.
+func cottenMaxGuidance(width int) []string {
+	rows := []string{}
+	for _, line := range []string{
+		"Normal + CottenMax beta share the domain/key.",
+		"Max: compatible beta server; client selects mode.",
+	} {
+		rows = append(rows, wrapped(line, width)...)
+	}
+	return rows
 }
 
 func (m Model) credentialsView(width int) string {
