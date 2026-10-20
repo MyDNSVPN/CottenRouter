@@ -12,7 +12,7 @@
 [![License](https://img.shields.io/github/license/TaJirax/CottenRouter?style=flat-square)](LICENSE)
 [![Container](https://img.shields.io/badge/GHCR-multi--arch-blue?style=flat-square&logo=docker)](https://github.com/TaJirax/CottenRouter/pkgs/container/cottenrouter)
 
-[English](README.md) · [نصب سریع](#-نصب-سریع) · [راهنمای استفاده](#-راهنمای-استفاده) · [دستورات](#-مرجع-دستورات) · [Docker](#-اجرای-docker) · [حذف](#-حذف-cottenrouter) · [قدردانی](#-پروژهها-و-قدردانی)
+[English](README.md) · [بتای CottenMax](#cottenmax-beta) · [نصب سریع](#-نصب-سریع) · [راهنمای استفاده](#-راهنمای-استفاده) · [دستورات](#-مرجع-دستورات) · [Docker](#-اجرای-docker) · [حذف](#-حذف-cottenrouter) · [قدردانی](#-پروژهها-و-قدردانی)
 
 </div>
 
@@ -37,6 +37,31 @@
 - API مدیریتی فقط روی loopback و داشبورد با refresh دو ثانیه‌ای
 - Docker بدون root، با filesystem فقط‌خواندنی و بدون shell داخلی
 - باینری‌های رسمی `linux/amd64` و `linux/arm64` با checksum
+
+---
+
+<a id="cottenmax-beta"></a>
+
+## بتای CottenMax
+
+**CottenMax به‌صورت اختیاری برای آزمایش بتا درون CottenDNS آماده است.** از همان سرویس، دامنه delegate‌شده، کلید مشترک و مسیر فعلی CottenDNS در Router استفاده می‌کند. در کلاینت سازگار، حالت **Normal / CottenMax beta** را انتخاب کنید؛ سرور به‌روز CottenDNS هر دو حالت را می‌پذیرد. نیازی به پروژه، مسیر یا کلید مشترک جدا در Router نیست.
+
+| بخش | وضعیت بتا |
+|---|---|
+| سورس Router و CottenDNS | تغییرات روی شاخه `main` در [WhiteDNS/CottenRouter](https://github.com/WhiteDNS/CottenRouter)، [TaJirax/CottenRouter](https://github.com/TaJirax/CottenRouter)، [WhiteDNS/CottenDNS](https://github.com/WhiteDNS/CottenDNS) و [TaJirax/cottenDNS](https://github.com/TaJirax/cottenDNS) قرار دارند |
+| کلاینت دسکتاپ | [بیلد debug ویندوز](https://github.com/WhiteDNS/WhiteDNS-Desktop/actions/runs/39496092467/artifacts/12298076386)، با انتخاب Normal / CottenMax |
+| کلاینت اندروید | [APKهای debug](https://github.com/WhiteDNS/WhiteDNS-Android/actions/runs/39495252224/artifacts/12298456373)، با انتخاب حالت در پروفایل |
+| نصب‌کننده‌های منتشرشده | همچنان آخرین **release منتشرشده** را دریافت می‌کنند؛ push به `main` به‌تنهایی باینری بتا منتشر نمی‌کند |
+
+این artifactهای CI موقت هستند و ممکن است دریافت آن‌ها به ورود به حساب GitHub نیاز داشته باشد. **release جدیدی برای دسکتاپ یا اندروید منتشر نشده است.** هنگام آزمایش روی دستگاه واقعی، اینترنت موبایل و اتصال‌های طولانی، حالت Normal را برای بازگشت در دسترس نگه دارید.
+
+برای آزمایش رابط به‌روز Router از `--channel=edge` یا `--local-source` طبق دستورهای پایین استفاده کنید. این گزینه‌ها فقط **خود Router** را به‌روز می‌کنند؛ عملیات نصب/به‌روزرسانی CottenDNS در آن همچنان آخرین release منتشرشده CottenDNS را دریافت می‌کند. برای Max، ابتدا سرور بتای سازگار CottenDNS را طبق [راهنمای بتای CottenDNS](https://github.com/WhiteDNS/CottenDNS#cottenmax-beta) از سورس نصب کنید.
+
+اگر بک‌اند از قبل زیر مدیریت Router است، هنگام جایگزینی باینری سرور، پوشه کاری سرویس، تنظیمات، کلید و پورت‌های خصوصی loopback آن را حفظ کنید. پورت عمومی `53` باید در اختیار CottenRouter بماند؛ بک‌اند را به این پورت منتقل نکنید. از همان مسیر CottenDNS استفاده کنید، سپس در کلاینت Max را انتخاب و دوباره متصل شوید. دامنه‌های بسیار طولانی حالت legacy ممکن است از محدودیت طول دامنه Max بیشتر باشند.
+
+تب **Guide** و فرم نصب CottenDNS در Router، اشتراک دامنه/کلید و نیاز به سرور سازگار را توضیح می‌دهند. [راهنمای ترمینال و تغییر حالت](https://github.com/WhiteDNS/CottenDNS/blob/main/docs/COTTENMAX_BETA_TERMINAL.md) و [ترنسپورت‌ها و تنظیمات اختیاری Max](https://github.com/WhiteDNS/CottenDNS/blob/main/docs/COTTENMAX_OPTIONS.md) را ببینید. DoH روی HTTP/3 و DoQ گزینه‌های ارتباط کلاینت با resolver هستند؛ این گزینه‌ها QUIC passthrough یا listener کوئیک authoritative به CottenRouter اضافه نمی‌کنند.
+
+**Soar** و **Soar 2.2** همچنان بک‌اندهای جدا با zone و کلید مستقل هستند. CottenMax حالت داخلی CottenDNS است؛ Soar 2.2 همان گزینه دارای موتور قدیمی‌تر Lantern v0.2.2 است که پایین توضیح داده شده است.
 
 ---
 
@@ -132,11 +157,13 @@ sudo cottenrouter tui
 
 | کلید | عملیات |
 |---|---|
+| `Tab` / `Shift+Tab` | جابه‌جایی میان تب‌های Overview، Install، Ports و Guide |
 | `Space` | انتخاب یا لغو انتخاب پروژه |
 | `i` | نصب هدایت‌شده پروژه‌های انتخاب‌شده |
 | `Enter` / `e` | ویرایش دامنه، پورت خصوصی، TCP، DoT و DoH |
 | `a` | باز کردن تنظیمات پیشرفته و native پروژه |
 | `s` | restart پروژه |
+| `U` | به‌روزرسانی بک‌اند نصب‌شده از کانال انتشار آن |
 | `u` | جدا کردن پروژه بدون حذف فایل‌ها |
 | `x` | حذف کامل پروژه با تأیید صریح |
 | `v` | نمایش مسیر credentialها و اطلاعات عمومی |
@@ -224,6 +251,7 @@ cottenrouter serve             اجرای router با config مشخص
 cottenrouter check             اعتبارسنجی config بدون اجرا
 cottenrouter healthz           بررسی سلامت سرویس
 cottenrouter install           نصب یک backend از CLI
+cottenrouter update            به‌روزرسانی مستقل backend نصب‌شده
 cottenrouter configure         ویرایش تنظیمات پایدار backend
 cottenrouter advanced          تنظیمات پیشرفته backend
 cottenrouter service           start / stop / restart یک پروژه
@@ -328,6 +356,10 @@ CottenRouter نیست. دامنه‌ها، کلیدها و تنظیمات مسی
 برای CottenDNS آخرین انتشار رسمی `WhiteDNS/CottenDNS` دریافت و نسخه باینری
 نصب‌شده بررسی می‌شود؛ خطای دریافت نسخه به نصب بی‌صدای نسخه قدیمی منجر نمی‌شود.
 
+این مسیر، release منتشرشده را نصب می‌کند. اگر بتای CottenMax را از سورس نصب
+کرده‌اید، برای حفظ پشتیبانی Max از [روش به‌روزرسانی بتا](https://github.com/WhiteDNS/CottenDNS#cottenmax-beta)
+استفاده کنید؛ به‌روزرسانی بک‌اند ممکن است باینری بتا را با آخرین release منتشرشده جایگزین کند.
+
 ### بررسی نسخه
 
 ```bash
@@ -427,7 +459,7 @@ CottenRouter برای کار در کنار پروژه‌های زیر ساخته
 
 | پروژه | نقش در اکوسیستم | لینک |
 |---|---|---|
-| **CottenDNS** | DNS tunnel با UDP/TCP، DoT، DoH، ARQ و MTU discovery | [مخزن](https://github.com/WhiteDNS/CottenDNS) |
+| **CottenDNS** | DNS tunnel با UDP/TCP، DoT، DoH، ARQ، MTU discovery و حالت اختیاری بتای CottenMax | [مخزن](https://github.com/WhiteDNS/CottenDNS) |
 | **MasterDnsVPN** | DNS tunneling backend | [مخزن](https://github.com/masterking32/MasterDnsVPN) |
 | **StormDNS** | DNS tunneling backend | [مخزن](https://github.com/nullroute1970/StormDNS) |
 | **thefeed** | feed، chat، media و relay روی DNS | [مخزن](https://github.com/sartoopjj/thefeed) |

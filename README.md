@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/github/license/TaJirax/CottenRouter?style=flat-square)](LICENSE)
 [![Container](https://img.shields.io/badge/GHCR-multi--arch-blue?style=flat-square&logo=docker)](https://github.com/TaJirax/CottenRouter/pkgs/container/cottenrouter)
 
-[فارسی](README.fa.md) · [Install](#-installation) · [Usage](#-control-deck) · [Commands](#-command-reference) · [Docker](#-docker) · [Upgrade](#-upgrade) · [Uninstall](#-uninstall) · [Credits](#-projects-and-credits)
+[فارسی](README.fa.md) · [CottenMax beta](#cottenmax-beta) · [Install](#-installation) · [Usage](#-control-deck) · [Commands](#-command-reference) · [Docker](#-docker) · [Upgrade](#-upgrade) · [Uninstall](#-uninstall) · [Credits](#-projects-and-credits)
 
 </div>
 
@@ -58,6 +58,31 @@ flowchart LR
 | systemd and firewall integration | ✅ | — |
 | Rootless runtime | — | ✅ |
 | Best for | A fresh server managed end to end | Existing container infrastructure |
+
+---
+
+<a id="cottenmax-beta"></a>
+
+## CottenMax beta
+
+**CottenMax is available for opt-in beta testing inside CottenDNS.** It reuses the CottenDNS service, delegated domain, shared key and existing Router route. Select **Normal / CottenMax beta** in a compatible client; an updated CottenDNS server accepts both modes. No extra Router project, route or shared key is needed.
+
+| Component | Beta availability |
+|---|---|
+| Router and CottenDNS source | Changes are on `main`: [WhiteDNS/CottenRouter](https://github.com/WhiteDNS/CottenRouter), [TaJirax/CottenRouter](https://github.com/TaJirax/CottenRouter), [WhiteDNS/CottenDNS](https://github.com/WhiteDNS/CottenDNS) and [TaJirax/cottenDNS](https://github.com/TaJirax/cottenDNS) |
+| Desktop client | [Windows debug build](https://github.com/WhiteDNS/WhiteDNS-Desktop/actions/runs/39496092467/artifacts/12298076386), with Normal / CottenMax selection |
+| Android client | [Debug APKs](https://github.com/WhiteDNS/WhiteDNS-Android/actions/runs/39495252224/artifacts/12298456373), with profile mode selection |
+| Published installers | Still download the latest **published release**; a push to `main` does not publish a beta binary |
+
+These CI artifacts are temporary and may require a GitHub sign-in. **No new Desktop or Android release was published.** Keep Normal mode available as a fallback while testing real devices, mobile networks and long-running connections.
+
+To test the updated Router UI, use `--channel=edge` or `--local-source` as shown below. These options update **Router only**: its CottenDNS install/update action still fetches the latest published CottenDNS release. For Max, first install a compatible beta CottenDNS server from source using the [CottenDNS beta guide](https://github.com/WhiteDNS/CottenDNS#cottenmax-beta).
+
+For an existing Router-managed backend, preserve its service working directory, configuration, key and private loopback listener ports when replacing its server binary. CottenRouter must retain public port `53`; do not move the backend to that port. Reuse the existing CottenDNS route, then select Max in the client and reconnect. Very long legacy domains can exceed Max's domain limits.
+
+The Router **Guide** tab and CottenDNS install form explain the shared domain/key and compatible-server requirement. See [terminal setup and mode switching](https://github.com/WhiteDNS/CottenDNS/blob/main/docs/COTTENMAX_BETA_TERMINAL.md) and [optional Max transports and tuning](https://github.com/WhiteDNS/CottenDNS/blob/main/docs/COTTENMAX_OPTIONS.md). DoH over HTTP/3 and DoQ are client-to-resolver options; they do not add QUIC passthrough or authoritative QUIC listeners to CottenRouter.
+
+**Soar** and **Soar 2.2** remain separate backends with their own zones and keys. CottenMax is the mode inside CottenDNS; Soar 2.2 remains the older Lantern v0.2.2 option described below.
 
 ---
 
@@ -138,11 +163,13 @@ sudo cottenrouter tui
 
 | Key | Action |
 |---|---|
+| `Tab` / `Shift+Tab` | Switch Overview, Install, Ports and Guide tabs |
 | `Space` | Select or deselect a project |
 | `i` | Run guided installation for selected projects |
 | `Enter` / `e` | Edit domains, private ports, TCP, DoT, and DoH |
 | `a` | Open the complete native project configuration |
 | `s` | Restart a project |
+| `U` | Update an installed backend from its published channel |
 | `u` | Detach a project while preserving its files |
 | `x` | Permanently remove a project after confirmation |
 | `v` | Show credential paths and public values |
@@ -217,6 +244,7 @@ cottenrouter serve             Run the router with a configuration
 cottenrouter check             Validate a configuration without serving
 cottenrouter healthz           Probe router health
 cottenrouter install           Install a backend from the CLI
+cottenrouter update            Update an installed backend independently
 cottenrouter configure         Edit stable backend settings
 cottenrouter advanced          Edit advanced native backend settings
 cottenrouter service           Start, stop, or restart a project
@@ -344,6 +372,11 @@ In the TUI, select an installed project and press `U`. CottenDNS resolves the
 latest published WhiteDNS release on every operation and checks the installed
 binary version. Domains, keys and routing settings are preserved.
 
+This is the published-release path. If you installed the CottenMax source beta,
+use its [beta update workflow](https://github.com/WhiteDNS/CottenDNS#cottenmax-beta)
+to retain Max support; a backend update can replace a beta binary with the
+latest published release.
+
 ```bash
 cottenrouter version
 sudo systemctl --no-pager --full status cottenrouter
@@ -429,6 +462,7 @@ Use [Issues](https://github.com/TaJirax/CottenRouter/issues) for bugs and featur
 | [Installer and control deck](docs/installer.md) | TUI controls, ports, panels, safeguards, and removal |
 | [Backend integration](docs/backend-integration.md) | Domains, listeners, feature boundaries, and project notes |
 | [Soar setup](docs/soar.md) | Official Soar and WhiteDNS's older Soar 2.2 option, routing, keys, and verification |
+| [CottenMax beta](#cottenmax-beta) | Client debug builds, compatible server requirement, shared credentials and release-channel status |
 | [Security](docs/security.md) | Flood controls, resource limits, systemd hardening, and swap |
 | [Configuration example](cottenrouter.example.json) | Complete annotated-style configuration starting point |
 | [Release notes v1.2.13](docs/releases/v1.2.13.md) | What changed since v1.2.10, upgrade steps, and load-test results |
@@ -441,7 +475,7 @@ CottenRouter is designed to interoperate with these independent open-source proj
 
 | Project | Role in the ecosystem | Link |
 |---|---|---|
-| **CottenDNS** | DNS tunnel with UDP/TCP, DoT, DoH, ARQ, and MTU discovery | [Repository](https://github.com/WhiteDNS/CottenDNS) |
+| **CottenDNS** | DNS tunnel with UDP/TCP, DoT, DoH, ARQ, MTU discovery and the optional CottenMax beta mode | [Repository](https://github.com/WhiteDNS/CottenDNS) |
 | **MasterDnsVPN** | DNS tunneling backend | [Repository](https://github.com/masterking32/MasterDnsVPN) |
 | **StormDNS** | DNS tunneling backend | [Repository](https://github.com/nullroute1970/StormDNS) |
 | **thefeed** | Feed, chat, media, and relay over DNS | [Repository](https://github.com/sartoopjj/thefeed) |
